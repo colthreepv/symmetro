@@ -1,0 +1,16 @@
+{
+  "semicolon": false,
+  "prettier": true,
+  "rules": {
+    "n/file-extension-in-import": "off",
+    "@typescript-eslint/triple-slash-reference": "off",
+    "@typescript-eslint/no-unnecessary-type-assertion": "off",
+    "@typescript-eslint/no-unsafe-assignment": "off",
+    "unicorn/no-new-array": "off",
+    "no-eq-null": "off",
+    "eqeqeq": "off",
+    "capitalized-comments": "off",
+    "max-params": "off",
+    "unicorn/prefer-event-target": "off"
+  }
+}
