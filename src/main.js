@@ -1,9 +1,9 @@
 import { testStrength } from './strength.js'
 
 async function encryptText() {
-  const text = document.getElementById('encryptText').value
+  const text = document.getElementById('encrypt-text').value
   const secret = document.getElementById('secret').value
-  const encrypted = document.getElementById('encryptedText')
+  const encrypted = document.getElementById('encrypted-text')
 
   const encoder = new TextEncoder()
   const secretKey = await generateKey(secret)
@@ -106,6 +106,34 @@ function colorizePassword() {
   })
 }
 
+function switchMode() {
+  const modeSwitch = document.getElementById('mode-switch')
+  const switchSection = document.getElementById('switch-section')
+  const toggleLabel = switchSection.querySelector('.toggle-label')
+  const encrypt = document.getElementById('encrypt-box')
+  const decrypt = document.getElementById('decrypt-box')
+
+  encrypt.classList.toggle('hidden')
+  decrypt.classList.toggle('hidden')
+
+  modeSwitch.classList.toggle('translate-x-4')
+  toggleLabel.classList.toggle('bg-blue-400')
+
+  if (modeSwitch.checked)
+    window.location.hash = 'decrypt'
+  else
+    window.location.hash = ''
+}
+
+function readPageHash() {
+  const hash = window.location.hash
+  const modeSwitch = document.getElementById('mode-switch')
+  if (hash === '#decrypt') {
+    modeSwitch.checked = true
+    switchMode()
+  }
+}
+
 function main() {
   const secret = document.getElementById('secret')
   const secretStrength = document.getElementById('secret-strength')
@@ -114,22 +142,11 @@ function main() {
     secretStrength.textContent = `${score.toFixed(1)}`
   })
 
-  const modeSwitch = document.getElementById('modeSwitch')
-  modeSwitch.addEventListener('change', () => {
-    const switchSection = document.getElementById('switch-section')
-    const toggleLabel = switchSection.querySelector('.toggle-label')
-    const encrypt = document.getElementById('encrypt-box')
-    const decrypt = document.getElementById('decrypt-box')
-
-    encrypt.classList.toggle('hidden')
-    decrypt.classList.toggle('hidden')
-
-    modeSwitch.classList.toggle('translate-x-4')
-    toggleLabel.classList.toggle('bg-blue-400')
-    modeSwitch.checked = !modeSwitch.checked
-  })
+  const modeSwitch = document.getElementById('mode-switch')
+  modeSwitch.addEventListener('change', switchMode)
 
   colorizePassword()
+  readPageHash()
 
   window.encryptText = encryptText
   window.decryptText = decryptText
