@@ -8,11 +8,13 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
+        with:
+          node-version: '20'
 
       - name: Setup Node
         uses: actions/setup-node@v3
@@ -33,19 +35,26 @@ jobs:
         with:
           name: production-files
           path: ./dist
+          node-version: '20'
 
   deploy:
     name: Deploy
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     if: github.ref == 'refs/heads/main'
 
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          node-version: '20'
+
       - name: Download artifact
         uses: actions/download-artifact@v3
         with:
           name: production-files
           path: ./dist
+          node-version: '20'
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
