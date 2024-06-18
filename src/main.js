@@ -1,3 +1,4 @@
+import './index.css'
 import { testStrength } from './strength.js'
 
 async function encryptText() {
@@ -108,16 +109,25 @@ function colorizePassword() {
 
 function switchMode() {
   const modeSwitch = document.getElementById('mode-switch')
-  const switchSection = document.getElementById('switch-section')
-  const toggleLabel = switchSection.querySelector('.toggle-label')
   const encrypt = document.getElementById('encrypt-box')
   const decrypt = document.getElementById('decrypt-box')
 
+  // cleanup input fields
+  const secret = document.getElementById('secret')
+  const decryptSecret = document.getElementById('decrypt-secret')
+  const text = document.getElementById('encrypt-text')
+  const text2 = document.getElementById('decrypt-text')
+  const encrypted = document.getElementById('encrypted-text')
+  const decrypted = document.getElementById('decrypted-text')
+  secret.value = ''
+  decryptSecret.value = ''
+  encrypted.value = ''
+  decrypted.value = ''
+  text.value = ''
+  text2.value = ''
+
   encrypt.classList.toggle('hidden')
   decrypt.classList.toggle('hidden')
-
-  modeSwitch.classList.toggle('translate-x-4')
-  toggleLabel.classList.toggle('bg-blue-400')
 
   if (modeSwitch.checked)
     window.location.hash = 'decrypt'
@@ -134,7 +144,25 @@ function readPageHash() {
   }
 }
 
+function disableButtons() {
+  const encryptButton = document.getElementById('encrypt-button')
+  const secret = document.getElementById('secret')
+  encryptButton.disabled = true
+  encryptButton.classList.add('disabled')
+  secret.addEventListener('input', () => {
+    encryptButton.disabled = secret.value.length === 0
+  })
+
+  const decryptButton = document.getElementById('decrypt-button')
+  const decryptSecret = document.getElementById('decrypt-secret')
+  decryptButton.disabled = true
+  decryptSecret.addEventListener('input', () => {
+    decryptButton.disabled = decryptSecret.value.length === 0
+  })
+}
+
 function main() {
+  disableButtons()
   const secret = document.getElementById('secret')
   const secretStrength = document.getElementById('secret-strength')
   secret.addEventListener('input', () => {
