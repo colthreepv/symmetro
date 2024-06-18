@@ -40,7 +40,6 @@ jobs:
           name: production-files
           path: ./dist
 
-  # from github tutorial
   deploy:
     name: Deploy
     needs: build
@@ -52,13 +51,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: production-files
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           name: production-files
-          path: ./dist
+          path: ./production-files
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
