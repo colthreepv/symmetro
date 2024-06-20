@@ -1,74 +1,27 @@
 import './index.css'
 import { testStrength } from './strength.js'
+import { decryptText, encryptText } from './crypto.js'
 
-async function encryptText() {
+async function encryptTextToDom() {
   const text = document.getElementById('encrypt-text').value
   const secret = document.getElementById('secret').value
   const encrypted = document.getElementById('encrypted-text')
 
-  const encoder = new TextEncoder()
-  const secretKey = await generateKey(secret)
+  const encryptedData = await encryptText(text, secret)
 
-  const iv = crypto.getRandomValues(new Uint8Array(12))
-  const encoded = encoder.encode(text)
-
-  const ciphertext = await crypto.subtle.encrypt(
-    {
-      name: 'AES-GCM',
-      iv,
-    },
-    secretKey,
-    encoded,
-  )
-
-  const encryptedData = new Uint8Array(ciphertext)
-  const combinedData = new Uint8Array(iv.length + encryptedData.length)
-  combinedData.set(iv)
-  combinedData.set(encryptedData, iv.length)
-
-  const base64Encrypted = btoa(String.fromCharCode.apply(null, combinedData))
-  encrypted.value = base64Encrypted
+  const base64Encoded = btoa(String.fromCharCode.apply(null, encryptedData))
+  encrypted.value = base64Encoded
 }
 
-async function generateKey(secret) {
-  const encoder = new TextEncoder()
-  const secretBytes = encoder.encode(secret)
-  const hash = await crypto.subtle.digest('SHA-256', secretBytes)
-  return await crypto.subtle.importKey(
-    'raw',
-    hash,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt', 'decrypt'],
-  )
-}
-
-async function decryptText(dryRun = false) {
+async function decryptTextToDom(dryRun = false) {
   const text = document.getElementById('decrypt-text').value
   const secret = document.getElementById('decrypt-secret').value
   const decrypted = document.getElementById('decrypted-text')
 
-  const secretKey = await generateKey(secret)
+  const base64Decoded = atob(text)
+  const cyphertext = new Uint8Array([...base64Decoded].map(char => char.charCodeAt(0)))
 
-  const encryptedData = atob(text)
-  const encryptedBytes = new Uint8Array(encryptedData.length)
-  for (let i = 0; i < encryptedData.length; i++)
-    encryptedBytes[i] = encryptedData.charCodeAt(i)
-
-  const iv = encryptedBytes.slice(0, 12)
-  const ciphertext = encryptedBytes.slice(12)
-
-  const decryptedData = await crypto.subtle.decrypt(
-    {
-      name: 'AES-GCM',
-      iv,
-    },
-    secretKey,
-    ciphertext,
-  )
-
-  const decoder = new TextDecoder()
-  const decryptedText = decoder.decode(decryptedData)
+  const decryptedText = await decryptText(cyphertext, secret)
   if (!dryRun)
     decrypted.value = decryptedText
 }
@@ -89,7 +42,7 @@ function colorizePassword() {
 
     let valid = true
     try {
-      await decryptText(true)
+      await decryptTextToDom(true)
     }
     catch (error) {
       valid = false
@@ -176,8 +129,8 @@ function main() {
   colorizePassword()
   readPageHash()
 
-  window.encryptText = encryptText
-  window.decryptText = decryptText
+  window.encryptText = encryptTextToDom
+  window.decryptText = decryptTextToDom
 }
 
 void main()
