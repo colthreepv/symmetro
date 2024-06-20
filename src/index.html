@@ -28,7 +28,7 @@
         <input type="password" id="secret" class="input input-bordered w-full max-w-lg" />
       </div>
 
-      <button onclick="encryptText()" id="encrypt-button" class="btn btn-success">
+      <button onclick="encryptTextToDom()" id="encrypt-button" class="btn btn-success">
         Encrypt
       </button>
 
@@ -44,18 +44,45 @@
     <label for="decrypt-text" class="block mb-2">Enter the encrypted text:</label>
     <textarea id="decrypt-text" rows="8" class="w-full textarea textarea-bordered mb-4"></textarea>
 
+    <div class="flex flex-row items-end space-x-4">
+      <div>
     <label for="decrypt-secret" class="block mb-2">
       Validate the password:
       <span id="decrypt-secret-valid" class="hidden">✅</span>
       <span id="decrypt-secret-invalid" class="hidden">❌</span>
     </label>
-    <input type="password" id="decrypt-secret" class="w-full sm:w-64 input input-bordered mb-4">
+        <input type="password" id="decrypt-secret" class="input input-bordered w-full max-w-lg" />
+      </div>
 
-    <button onclick="decryptText()" id="decrypt-button" class="btn btn-primary">Decrypt</button>
+      <button onclick="decryptTextToDom()" id="decrypt-button" class="btn btn-primary">
+        Decrypt
+      </button>
+    </div>
 
     <p class="mt-4 text-blue-500">Decrypted Text:</p>
     <textarea id="decrypted-text" rows="8" class="w-full textarea textarea-bordered mt-4" readonly onclick="this.select();"></textarea>
   </div>
+
+  <div class="mt-2">
+    <h1 class="text-4xl">More Info</h1>
+    <p class="mt-4">
+        Symmetro uses <a href="https://en.wikipedia.org/wiki/Galois/Counter_Mode" class="link" target="_blank">AES-256-GCM</a> for encryption
+    </p>
+    <p class="mt-2">
+        The password is transformed into a hash using PBKDF2 with 100,000 iterations, enhancing the resistance to brute-force attacks. For more details, see <a href="https://en.wikipedia.org/wiki/PBKDF2" class="link" target="_blank">PBKDF2 on Wikipedia</a>.
+    </p>
+    <p class="mt-2">
+        A random salt is generated for each encryption process to prevent attacks using generic rainbow tables. While still theoretically vulnerable to targeted rainbow table attacks, the computational effort required makes it impractical. Note that the salt is <strong>not meant to be secret</strong>.
+    </p>
+    <p class="mt-2">
+        An initialization vector (IV) is also randomly generated and combined with the ciphertext to ensure additional entropy. Similar to the salt, the IV is <strong>not meant to be secret</strong>.
+    </p>
+
+    <h2 class="text-3xl mt-4">Trust, but verify</h2>
+    <p class="mt-4">Never trust a random project on the internet, <a href="https://github.com/colthreepv/symmetro" class="link" target="_blank"></a> Symmetro uses Web Crypto API to do all the crypto-related functions in browser, standing on the shoulders of giants, and benefitting of native-code performance</p>
+    <p class="mt-2">There is zero data in/out of this page, you <strong>SHOULD</strong> use this page offline for safety purposes, as internet connection is not required, <a href="https://github.com/colthreepv/symmetro/releases" class="link" target="_blank">download a release</a></p>
+  </div>
+
 
   <script type="module" src="main.js"></script>
 </body>
