@@ -114,8 +114,29 @@ function disableButtons() {
   })
 }
 
+function enterToSubmit() {
+  const secret = document.getElementById('secret')
+  const decryptSecret = document.getElementById('decrypt-secret')
+  const encryptButton = document.getElementById('encrypt-button')
+  const decryptButton = document.getElementById('decrypt-button')
+
+  secret.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      encryptButton.click()
+    }
+  })
+  decryptSecret.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      decryptButton.click()
+    }
+  })
+}
+
 function main() {
   disableButtons()
+  enterToSubmit()
   const secret = document.getElementById('secret')
   const secretStrength = document.getElementById('secret-strength')
   secret.addEventListener('input', () => {
@@ -129,8 +150,8 @@ function main() {
   colorizePassword()
   readPageHash()
 
-  window.encryptText = encryptTextToDom
-  window.decryptText = decryptTextToDom
+  window.encryptTextToDom = encryptTextToDom
+  window.decryptTextToDom = decryptTextToDom
 }
 
 void main()
