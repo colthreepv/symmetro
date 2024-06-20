@@ -12,7 +12,7 @@ export function testStrength(input) {
 
   // Letters, numbers, mixed case
   const hasLetters = /[a-z]/i.test(input)
-  const hasNumbers = /[0-9]/.test(input)
+  const hasNumbers = /\d/.test(input)
   const hasBothCases = /[a-z]/.test(input) && /[A-Z]/.test(input)
 
   if (hasLetters && hasNumbers)
@@ -38,7 +38,7 @@ export function testStrength(input) {
     score += 0.5
 
   // has more than just: - _ + .
-  const hasReallySpecial = /[^a-z0-9\-_+.]/i.test(input)
+  const hasReallySpecial = /[^\w\-+.]/.test(input)
   if (hasReallySpecial)
     score += 1
 
