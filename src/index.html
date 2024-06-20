@@ -2,14 +2,19 @@
 <html class="dark bg-gray-900">
 
 <head>
-  <title>Symmetro</title>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Symmetro, a web-based tool for secure encryption and decryption using AES-256-GCM, ensures your data remains safe and private with no data in/out transfer required.">
+  <meta name="keywords" content="Symmetro, encryption, decryption, AES-256-GCM, security, privacy, cryptography">
+  <meta property="og:title" content="Symmetro - Secure Encryption Tool">
+  <meta property="og:description" content="Use Symmetro for high-level data encryption and decryption directly in your browser. No data transfer required, enhancing your security and privacy.">
+  <meta property="og:type" content="website">
+  <title>Symmetro</title>
 </head>
 
 <body class="text-white p-4">
   <div class="flex justify-between items-center mb-4">
-    <h1 class="text-4xl text-blue-500">Symmetro</h1>
+    <h1 class="text-4xl text-blue-500">Symmetro <span class="text-sm text-slate-400" id="version-text"></span></h1>
 
     <div class="flex items-center">
       <label class="mr-2">Encrypt</label>
@@ -46,11 +51,11 @@
 
     <div class="flex flex-row items-end space-x-4">
       <div>
-    <label for="decrypt-secret" class="block mb-2">
-      Validate the password:
-      <span id="decrypt-secret-valid" class="hidden">✅</span>
-      <span id="decrypt-secret-invalid" class="hidden">❌</span>
-    </label>
+        <label for="decrypt-secret" class="block mb-2">
+          Validate the password:
+          <span id="decrypt-secret-valid" class="hidden">✅</span>
+          <span id="decrypt-secret-invalid" class="hidden">❌</span>
+        </label>
         <input type="password" id="decrypt-secret" class="input input-bordered w-full max-w-lg" />
       </div>
 
@@ -69,22 +74,30 @@
         Symmetro uses <a href="https://en.wikipedia.org/wiki/Galois/Counter_Mode" class="link" target="_blank">AES-256-GCM</a> for encryption
     </p>
     <p class="mt-2">
-        The password is transformed into a hash using PBKDF2 with 100,000 iterations, enhancing the resistance to brute-force attacks. For more details, see <a href="https://en.wikipedia.org/wiki/PBKDF2" class="link" target="_blank">PBKDF2 on Wikipedia</a>.
+        The password is transformed into a hash using <a href="https://en.wikipedia.org/wiki/PBKDF2" class="link" target="_blank">PBKDF2</a> with 100,000 iterations
     </p>
     <p class="mt-2">
-        A random salt is generated for each encryption process to prevent attacks using generic rainbow tables. While still theoretically vulnerable to targeted rainbow table attacks, the computational effort required makes it impractical. Note that the salt is <strong>not meant to be secret</strong>.
+        A random salt is generated for each encryption process to prevent attacks using generic rainbow tables. While still vulnerable to targeted rainbow table attacks, the computational effort required makes it impractical. Note that the salt is <strong>not meant to be secret</strong>.
     </p>
     <p class="mt-2">
-        An initialization vector (IV) is also randomly generated and combined with the ciphertext to ensure additional entropy. Similar to the salt, the IV is <strong>not meant to be secret</strong>.
+        An initialization vector <a href="https://en.wikipedia.org/wiki/Initialization_vector" class="link" target="_blank">(IV)</a> is also randomly generated and combined with the ciphertext to ensure additional entropy. Similar to the salt, the IV is <strong>not meant to be secret</strong>.
     </p>
 
-    <h2 class="text-3xl mt-4">Trust, but verify</h2>
-    <p class="mt-4">Never trust a random project on the internet, <a href="https://github.com/colthreepv/symmetro" class="link" target="_blank"></a> Symmetro uses Web Crypto API to do all the crypto-related functions in browser, standing on the shoulders of giants, and benefitting of native-code performance</p>
-    <p class="mt-2">There is zero data in/out of this page, you <strong>SHOULD</strong> use this page offline for safety purposes, as internet connection is not required, <a href="https://github.com/colthreepv/symmetro/releases" class="link" target="_blank">download a release</a></p>
+    <h2 class="text-3xl mt-4">Trust, but Verify</h2>
+    <p class="mt-4">
+        Never trust a random project on the internet. <a href="https://github.com/colthreepv/symmetro" class="link" target="_blank">Symmetro</a> uses the <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API" class="link" target="_blank">Web Crypto API</a> to perform all cryptographic functions in the browser, standing on the shoulders of giants and benefiting from native-code performance.
+    </p>
+    <p class="mt-2">
+        There is zero data in/out of this page; you <strong>SHOULD</strong> use this page offline for safety purposes, as an internet connection is not required. <a href="https://github.com/colthreepv/symmetro/releases" class="link" target="_blank">Download a release here.</a>
+    </p>
+    <p class="mt-2">The <a href="https://github.com/colthreepv/symmetro" class="link" target="_blank">entire codebase</a> is available and is distributed under a license that permits free use, modification, and distribution.</p>
   </div>
 
 
   <script type="module" src="main.js"></script>
+  <script type="module">
+    document.getElementById('version-text').innerText = `v${__APP_VERSION__}`;
+  </script>
 </body>
 
 </html>
