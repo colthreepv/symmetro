@@ -10,4 +10,4 @@ Available on [github pages](https://colthreepv.github.io/symmetro/) and [statica
 - `pnpm build` (for production build)
 
 # one gif
-![gif showing ui](https://github.com/neutronstar03/symmetro/assets/2657230/c9da034a-9899-4c93-8a04-c5ac4d3dbbcd)
+![gif showing ui](https://github.com/user-attachments/assets/0ff6774f-5929-4d05-bc26-92e8272e39b4)
