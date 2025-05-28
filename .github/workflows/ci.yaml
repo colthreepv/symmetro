@@ -36,10 +36,10 @@ jobs:
       - name: Build project
         run: pnpm run build
 
-      - name: Rename index.html with version
+      - name: Create versioned copy for release
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
-          mv ./dist/index.html ./dist/symmetro-${VERSION}.html
+          cp ./dist/index.html ./dist/symmetro-${VERSION}.html
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
