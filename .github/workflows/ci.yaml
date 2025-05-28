@@ -2,18 +2,20 @@ name: Deploy
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
+  attestations: write
 
 jobs:
-  build:
-    name: Build
+  # Full build with attestations and release for tags
+  build-and-release:
+    name: Build and Release
     runs-on: ubuntu-latest
 
     steps:
@@ -34,6 +36,22 @@ jobs:
       - name: Build project
         run: pnpm run build
 
+      - name: Rename index.html with version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          mv ./dist/index.html ./dist/symmetro-${VERSION}.html
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: './dist/symmetro-*.html'
+
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./dist/symmetro-*.html
+          draft: true
+
       - name: Upload production-ready build files
         uses: actions/upload-artifact@v4
         with:
@@ -42,9 +60,8 @@ jobs:
 
   deploy:
     name: Deploy
-    needs: build
+    needs: build-and-release
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
