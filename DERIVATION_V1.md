@@ -92,7 +92,7 @@ already-correct AES-GCM cipher is not inherently a security upgrade.
 
 ## Dependencies and offline packaging
 
-Runtime dependency: exact `hash-wasm@4.12.0` (MIT), locked in `pnpm-lock.yaml`.
+Runtime dependency: exact `hash-wasm@4.12.0` (MIT), locked in `package-lock.json`.
 The official package exposes `argon2id`, supports binary input/output, and embeds
 WASM in its JavaScript distribution. The inspected ESM package has no `fetch`
 call. Import only `argon2id`; let the existing production bundler tree-shake the
@@ -123,9 +123,9 @@ also run against hash-wasm and Web Crypto in the TypeScript tests.
 Run:
 
 ```sh
-pnpm install --frozen-lockfile --ignore-scripts
-pnpm typecheck
-pnpm test
+npm ci --ignore-scripts
+npm run typecheck
+npm test
 # Optional independent re-verification; never supply personal secrets.
 python -m pip install -r scripts/reference-requirements.txt
 python scripts/reference_vectors.py

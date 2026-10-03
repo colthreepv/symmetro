@@ -5,22 +5,45 @@ End-user instructions and download verification are in [README.md](README.md).
 ## Setup and build
 
 - Use the Node.js version in `.node-version` (currently 24.19.0)
-- Install the exact pnpm version in `package.json`: `corepack enable && corepack prepare pnpm@9.1.0 --activate`
-- Install dependencies with `pnpm install --frozen-lockfile --ignore-scripts`
-- Run `pnpm start` for the development server
-- Run `pnpm build` for the production artifact
+- Use the npm bundled with that Node release (11.17.0); no additional package manager is needed
+- Install dependencies with `npm ci --ignore-scripts`
+- Run `npm start` for the development server
+- Run `npm run build` for the production artifact
 
 The production build cleans `dist` and produces exactly one file,
 `dist/index.html`, with its JavaScript and CSS embedded. Open that built file
 directly from the filesystem to test the downloadable app. Do not deliver the
 source HTML or rely only on the development server.
 
+## Toolchain choices
+
+This is one small package, so it uses the npm bundled with the pinned Node
+release. `devEngines` accepts compatible Node 24 and npm 11 updates from this baseline;
+CI still uses `.node-version` exactly. `packageManager` records the baseline
+package-manager version for editors; it does not install or enforce that version.
+`package-lock.json` is the only dependency lockfile. Use `npm ci --ignore-scripts`
+for repeatable installs; dependency lifecycle scripts are not needed for this
+build. When changing dependencies, use `npm install --ignore-scripts` and review
+the lockfile diff.
+
+ESLint checks JavaScript/TypeScript mistakes and unhandled or misused promises
+in application TypeScript. There are no formatting, quote, semicolon, import
+sorting, CSS, or Markdown lint gates. Format locally however is useful without
+reformatting unrelated code. TypeScript checks types; the independent vectors,
+compatibility tests, and offline browser tests check behavior it cannot prove.
+
+Vite 7.3 receives upstream important fixes and security patches and keeps the
+existing Rollup build. It is pinned with a compatible `vite-plugin-singlefile`;
+the Vite 8/Rolldown migration is intentionally a separate decision. The interface
+uses ordinary CSS with a small explicit reset, without Tailwind, DaisyUI, or a
+separate PostCSS configuration. `hash-wasm` and derivation-v1 vectors stay pinned.
+
 ## Checks
 
-- `pnpm check` runs lint, strict TypeScript checks, synthetic crypto/derivation tests, the build, and static standalone-artifact validation
-- `pnpm typecheck` runs TypeScript independently; `pnpm test` runs the Node unit tests
-- `pnpm exec playwright install chromium` installs the browser used by the tests
-- `pnpm test:browser` opens the built HTML through `file://` with browser networking disabled and covers encryption/decryption, legacy ciphertext, independent derivation vectors, cancellation, navigation, input errors, clipboard fallback, and responsive layout
+- `npm run check` runs lint, strict TypeScript checks, synthetic crypto/derivation tests, the build, and static standalone-artifact validation
+- `npm run typecheck` runs TypeScript independently; `npm test` runs the Node unit tests
+- `npm exec -- playwright install chromium` installs the browser used by the tests
+- `npm run test:browser` opens the built HTML through `file://` with browser networking disabled and covers encryption/decryption, legacy ciphertext, independent derivation vectors, cancellation, navigation, input errors, clipboard fallback, and responsive layout
 - To use an existing Chromium installation, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path
 
 The browser suite captures populated Encrypt, Decrypt, and Derive screenshots in
@@ -29,6 +52,20 @@ overflow and the 1600-pixel workspace cap. It also covers the nested tool/mode
 navigation and theme changes without losing inputs or results. CI uploads images as
 `symmetro-ui-screenshots`; inspect them as well as the test results. Use no real
 secrets in tests or screenshots.
+
+## Dependency advisories
+
+As of 2026-10-03, `npm audit` reports the unpatched
+[braces advisory GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)
+through the build-only `vite-plugin-singlefile` → `micromatch` dependency chain.
+This dependency was already present before the toolchain update. The plugin only
+calls micromatch when `inlinePattern` is nonempty; this project leaves it at its
+empty default. It is not bundled into the downloaded application. Reassess this
+when changing build configuration or when upstream publishes a patch. Do not use
+`npm audit fix --force` to downgrade the single-file plugin to an obsolete release.
+
+`npm audit --omit=dev` checks the runtime dependency advisories separately. A clean
+advisory report does not audit the application or prove its cryptography safe.
 
 ## Continuous integration
 

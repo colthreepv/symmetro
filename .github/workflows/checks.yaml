@@ -20,26 +20,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install pinned pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Setup pinned Node
         uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
-          cache: pnpm
+          cache: npm
 
       - name: Install locked dependencies
-        run: pnpm install --frozen-lockfile --ignore-scripts
+        run: npm ci --ignore-scripts
 
       - name: Lint, unit test, build, and validate artifact
-        run: pnpm check
+        run: npm run check
 
       - name: Install browser
-        run: pnpm exec playwright install --with-deps chromium
+        run: npm exec -- playwright install --with-deps chromium
 
       - name: Test downloaded HTML offline
-        run: pnpm test:browser
+        run: npm run test:browser
 
       - name: Upload verified standalone HTML
         uses: actions/upload-artifact@v4
