@@ -20,8 +20,14 @@ export function checkArtifactHtml(html) {
       assert.ok(!value || /^(?:data:|#)/i.test(value), `External or separate-file resource: ${tag}`)
     }
   }
-  assert.doesNotMatch(html, /@import\s/i, 'CSS imports must be bundled')
-  for (const match of html.matchAll(/url\(\s*["']?([^)'"\s]+)/gi))
+  // Inspect CSS only. JavaScript createObjectURL(...) is needed for an inline
+  // disposable worker and is not a CSS resource request.
+  const css = [
+    ...Array.from(html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi), match => match[1]),
+    ...Array.from(html.matchAll(/\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/gi), match => match[1] ?? match[2]),
+  ].join('\n')
+  assert.doesNotMatch(css, /@import\s/i, 'CSS imports must be bundled')
+  for (const match of css.matchAll(/url\(\s*["']?([^)'"\s]+)/gi))
     assert.match(match[1], /^(?:data:|#)/i, `CSS resource must be embedded: ${match[1]}`)
 }
 

@@ -1,103 +1,94 @@
 <!DOCTYPE html>
-<html class="dark bg-gray-900">
-
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Symmetro, a web-based tool for secure encryption and decryption using AES-256-GCM, ensures your data remains safe and private with no data in/out transfer required.">
-  <meta name="keywords" content="Symmetro, encryption, decryption, AES-256-GCM, security, privacy, cryptography">
-  <meta property="og:title" content="Symmetro - Secure Encryption Tool">
-  <meta property="og:description" content="Use Symmetro for high-level data encryption and decryption directly in your browser. No data transfer required, enhancing your security and privacy.">
-  <meta property="og:type" content="website">
-  <title>Symmetro</title>
+  <meta name="description" content="Encrypt text, decrypt it, and generate reproducible numbered passwords. One self-contained page. Works offline.">
+  <title>Symmetro — Your secrets, locally</title>
 </head>
+<body>
+  <div class="shell">
+    <header class="site-header">
+      <a class="brand" href="#encrypt" aria-label="Symmetro home"><span class="brand-mark" aria-hidden="true">s<span>:</span></span>symmetro<span class="version" id="version-text"></span></a>
+      <div class="header-actions"><span class="offline-badge"><i aria-hidden="true"></i> Offline-ready</span><button type="button" class="quiet-button" id="clear-session">Clear session <span aria-hidden="true">↗</span></button></div>
+    </header>
 
-<body class="text-white p-4">
-  <div class="flex justify-between items-center mb-4">
-    <h1 class="text-4xl text-blue-500">Symmetro <span class="text-sm text-slate-400" id="version-text"></span></h1>
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div><p class="eyebrow">A little privacy goes a long way</p><h1 id="page-title">Your secrets.<br><span>Your browser.</span></h1></div>
+        <div class="intro-copy"><p>A quiet place to protect text and create<br class="desktop-break"> passwords you can find again.</p><p class="local-note"><span aria-hidden="true">↳</span> No account. No server. Nothing saved by the app.</p></div>
+      </section>
 
-    <div class="flex items-center">
-      <label class="mr-2">Encrypt</label>
-      <input type="checkbox" class="toggle bg-white" id="mode-switch" />
-      <label class="ml-2">Decrypt</label>
-    </div>
+      <section class="workspace" aria-label="Privacy tools">
+        <div class="toolbar">
+          <div class="tabs" role="tablist" aria-label="Choose a tool">
+            <button id="tab-encrypt" role="tab" aria-selected="true" aria-controls="panel-encrypt" tabindex="0" data-mode="encrypt"><span class="tab-symbol" aria-hidden="true">↗</span> Encrypt</button>
+            <button id="tab-decrypt" role="tab" aria-selected="false" aria-controls="panel-decrypt" tabindex="-1" data-mode="decrypt"><span class="tab-symbol" aria-hidden="true">↙</span> Decrypt</button>
+            <button id="tab-derive" role="tab" aria-selected="false" aria-controls="panel-derive" tabindex="-1" data-mode="derive"><span class="tab-symbol" aria-hidden="true">#</span> Derive</button>
+          </div>
+          <span class="toolbar-note">Everything happens here</span>
+        </div>
+
+        <div id="capability-warning" class="capability-warning" role="alert" hidden></div>
+
+        <section id="panel-encrypt" class="tool-panel" role="tabpanel" aria-labelledby="tab-encrypt">
+          <form id="encrypt-form" class="input-panel">
+            <div class="panel-heading"><span class="step">01 / INPUT</span><h2>Make it unreadable.</h2><p>Turn a message into text only your password can unlock.</p></div>
+            <div class="field"><div class="label-line"><label for="encrypt-text">Your message</label><span id="encrypt-count" class="field-meta">0 characters</span></div><textarea id="encrypt-text" rows="6" placeholder="Something worth keeping to yourself…" spellcheck="false" autocomplete="off"></textarea></div>
+            <div class="field"><label for="secret">Password</label><div class="secret-field"><input type="password" id="secret" placeholder="Use a long, hard-to-guess password" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="secret" aria-label="Show password" aria-pressed="false">Show</button></div><p class="field-help">Keep this password somewhere safe. There is no reset or recovery.</p></div>
+            <div class="form-actions"><button type="submit" id="encrypt-button" class="primary-button">Encrypt message <span aria-hidden="true">↗</span></button><button type="button" data-clear="encrypt" class="text-button">Clear</button></div>
+            <p id="encrypt-status" class="status" role="status" aria-live="polite"></p>
+          </form>
+          <div class="output-panel">
+            <div class="output-heading"><span class="step">02 / RESULT</span><span class="format-tag">AES-256-GCM</span></div>
+            <div class="output-title"><h3>Encrypted text</h3><button type="button" class="copy-button" data-copy="encrypted-text" disabled>Copy <span aria-hidden="true">⧉</span></button></div>
+            <textarea id="encrypted-text" class="result-text" rows="9" readonly aria-label="Encrypted text" placeholder="Your encrypted message will appear here." spellcheck="false"></textarea>
+            <div class="output-footer"><span class="small-dot" aria-hidden="true"></span><p>Safe to store or share as ciphertext.<br>Keep the password separate.</p></div>
+          </div>
+        </section>
+
+        <section id="panel-decrypt" class="tool-panel" role="tabpanel" aria-labelledby="tab-decrypt" hidden>
+          <form id="decrypt-form" class="input-panel">
+            <div class="panel-heading"><span class="step">01 / INPUT</span><h2>Bring it back.</h2><p>Unlock a message encrypted with Symmetro.</p></div>
+            <div class="field"><label for="decrypt-text">Encrypted text</label><textarea id="decrypt-text" class="mono" rows="6" placeholder="Paste the complete encrypted text…" spellcheck="false" autocomplete="off"></textarea></div>
+            <div class="field"><label for="decrypt-secret">Password</label><div class="secret-field"><input type="password" id="decrypt-secret" placeholder="The password used to encrypt it" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="decrypt-secret" aria-label="Show password" aria-pressed="false">Show</button></div><p class="field-help">Your password is checked only when you choose Decrypt.</p></div>
+            <div class="form-actions"><button type="submit" id="decrypt-button" class="primary-button">Decrypt message <span aria-hidden="true">↙</span></button><button type="button" data-clear="decrypt" class="text-button">Clear</button></div>
+            <p id="decrypt-status" class="status" role="status" aria-live="polite"></p>
+          </form>
+          <div class="output-panel">
+            <div class="output-heading"><span class="step">02 / RESULT</span><span class="format-tag">Original message</span></div>
+            <div class="output-title"><h3>Decrypted text</h3><button type="button" class="copy-button" data-copy="decrypted-text" disabled>Copy <span aria-hidden="true">⧉</span></button></div>
+            <textarea id="decrypted-text" class="result-text" rows="9" readonly aria-label="Decrypted text" placeholder="Your original message will appear here." spellcheck="false"></textarea>
+            <div class="output-footer"><span class="small-dot" aria-hidden="true"></span><p>This result is readable again.<br>Be mindful of who can see your screen.</p></div>
+          </div>
+        </section>
+
+        <section id="panel-derive" class="tool-panel" role="tabpanel" aria-labelledby="tab-derive" hidden>
+          <form id="derive-form" class="input-panel">
+            <div class="panel-heading"><span class="step">01 / INPUT</span><h2>One secret. Many passwords.</h2><p>The same secret, number, and recipe make the same password.</p></div>
+            <div class="field"><label for="derive-secret">Secret text</label><div class="secret-field"><input type="password" id="derive-secret" placeholder="A long secret only you know" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="derive-secret" aria-label="Show secret text" aria-pressed="false">Show</button></div><p class="field-help">Single-line text. Every space, letter, and character matters.</p></div>
+            <div class="recipe-fields"><div class="field"><label for="derive-index">Password number</label><div class="number-field"><span aria-hidden="true">#</span><input type="text" inputmode="numeric" id="derive-index" value="1" autocomplete="off" spellcheck="false" aria-describedby="index-help"></div></div><div class="field recipe-field"><label for="derive-version">Recipe</label><select id="derive-version" aria-describedby="recipe-help"><option value="1">Version 1</option></select></div></div>
+            <p id="index-help" class="field-help">1, 2, 3… You remember which number belongs where.</p>
+            <div class="caution"><span aria-hidden="true">!</span><p>A generated password is only as safe as your secret. A short or familiar phrase can still be guessed.</p></div>
+            <div class="form-actions"><button type="submit" id="derive-button" class="primary-button">Generate password <span aria-hidden="true">↗</span></button><button type="button" data-clear="derive" class="text-button">Clear</button></div>
+            <p id="derive-status" class="status" role="status" aria-live="polite"></p>
+          </form>
+          <div class="output-panel derive-output">
+            <div class="output-heading"><span class="step">02 / RESULT</span><span class="format-tag">43 characters</span></div>
+            <div class="output-title"><h3 id="derived-label">Password #1</h3><button type="button" class="copy-button" data-copy="derived-password" disabled>Copy <span aria-hidden="true">⧉</span></button></div>
+            <div class="derived-result"><span class="result-caption">YOUR REPRODUCIBLE PASSWORD</span><input id="derived-password" type="password" readonly autocomplete="new-password" aria-labelledby="derived-label" placeholder="Nothing generated yet"><button type="button" class="result-reveal" data-reveal="derived-password" aria-label="Show generated password" aria-pressed="false" disabled>Show password</button></div>
+            <button type="button" id="next-password" class="next-button" disabled>Generate next password <span aria-hidden="true">→</span></button>
+            <div class="output-footer"><span class="small-dot" aria-hidden="true"></span><p id="recipe-help">Keep the exact secret, number, and recipe version.<br>No list of your passwords is saved.</p></div>
+          </div>
+        </section>
+        <div class="workspace-footnote"><span aria-hidden="true">↔</span> Switching tools clears the fields. Copy anything you need first.</div>
+      </section>
+
+      <section class="principles" aria-label="How Symmetro works"><article><span class="principle-number">01</span><div><h3>Private by design</h3><p>Your inputs stay in this page. No analytics, accounts, or remote processing.</p></div></article><article><span class="principle-number">02</span><div><h3>Take it offline</h3><p>One HTML file with everything inside. Download a release and disconnect.</p></div></article><article><span class="principle-number">03</span><div><h3>Verify, then trust</h3><p>Open source and inspectable. Your browser, device, and secret still matter.</p></div></article></section>
+      <details class="technical-notes"><summary>A closer look at what happens here <span aria-hidden="true">+</span></summary><div class="notes-grid"><div><h3>Encrypt &amp; decrypt</h3><p>AES-256-GCM with a fresh random salt and IV for each message. Passwords are derived with PBKDF2-SHA256 at 100,000 iterations. Existing Symmetro encrypted messages remain compatible.</p></div><div><h3>Numbered passwords</h3><p>Recipe v1 uses Argon2id and HKDF-SHA256 to derive a 43-character base64url password. The recipe uses a fixed public salt for reproducibility, so a strong, unique source secret is essential. Identical inputs give identical passwords for everyone. A known generated password lets an attacker test secret guesses offline; finding the secret exposes all its password numbers.</p></div><div><h3>A few important limits</h3><p>There is no password recovery. Clearing removes values from the interface but cannot guarantee erasure from browser memory or clipboard history. Browser extensions, a compromised device, or a modified copy of this file can expose your secrets.</p></div></div></details>
+    </main>
+    <footer><p>A small tool. A little more privacy.</p><div><a href="https://github.com/colthreepv/symmetro" target="_blank" rel="noopener noreferrer">Source code ↗</a><a href="https://github.com/colthreepv/symmetro/releases" target="_blank" rel="noopener noreferrer">Download a release ↗</a></div></footer>
   </div>
-
-  <div id="encrypt-box">
-    <label for="encrypt-text" class="block mb-2">Enter the secret text:</label>
-    <textarea id="encrypt-text" rows="8" class="w-full textarea textarea-bordered mb-4"></textarea>
-
-    <div class="flex flex-row items-end space-x-4">
-      <div>
-        <label for="secret" class="block mb-2">Enter the password:</label>
-        <input type="password" id="secret" class="input input-bordered w-full max-w-lg" />
-      </div>
-
-      <button onclick="encryptTextToDom()" id="encrypt-button" class="btn btn-success">
-        Encrypt
-      </button>
-
-      <p class="mb-4">password strength: <span id="secret-strength">0.0</span>/5</p>
-    </div>
-
-    <p class="mt-4 text-green-500">Encrypted Text:</p>
-
-    <textarea id="encrypted-text" rows="8" class="w-full textarea textarea-bordered mt-4" readonly onclick="this.select();"></textarea>
-  </div>
-
-  <div id="decrypt-box" class="hidden">
-    <label for="decrypt-text" class="block mb-2">Enter the encrypted text:</label>
-    <textarea id="decrypt-text" rows="8" class="w-full textarea textarea-bordered mb-4"></textarea>
-
-    <div class="flex flex-row items-end space-x-4">
-      <div>
-        <label for="decrypt-secret" class="block mb-2">
-          Validate the password:
-          <span id="decrypt-secret-valid" class="hidden">✅</span>
-          <span id="decrypt-secret-invalid" class="hidden">❌</span>
-        </label>
-        <input type="password" id="decrypt-secret" class="input input-bordered w-full max-w-lg" />
-      </div>
-
-      <button onclick="decryptTextToDom()" id="decrypt-button" class="btn btn-primary">
-        Decrypt
-      </button>
-    </div>
-
-    <p class="mt-4 text-blue-500">Decrypted Text:</p>
-    <textarea id="decrypted-text" rows="8" class="w-full textarea textarea-bordered mt-4" readonly onclick="this.select();"></textarea>
-  </div>
-
-  <div class="mt-2">
-    <h1 class="text-4xl">More Info</h1>
-    <p class="mt-4">
-        Symmetro uses <a href="https://en.wikipedia.org/wiki/Galois/Counter_Mode" class="link" target="_blank">AES-256-GCM</a> for encryption
-    </p>
-    <p class="mt-2">
-        The password is transformed into a hash using <a href="https://en.wikipedia.org/wiki/PBKDF2" class="link" target="_blank">PBKDF2</a> with 100,000 iterations
-    </p>
-    <p class="mt-2">
-        A random salt is generated for each encryption process to prevent attacks using generic rainbow tables. While still vulnerable to targeted rainbow table attacks, the computational effort required makes it impractical. Note that the salt is <strong>not meant to be secret</strong>.
-    </p>
-    <p class="mt-2">
-        An initialization vector <a href="https://en.wikipedia.org/wiki/Initialization_vector" class="link" target="_blank">(IV)</a> is also randomly generated and combined with the ciphertext to ensure additional entropy. Similar to the salt, the IV is <strong>not meant to be secret</strong>.
-    </p>
-
-    <h2 class="text-3xl mt-4">Trust, but Verify</h2>
-    <p class="mt-4">
-        Never trust a random project on the internet. <a href="https://github.com/colthreepv/symmetro" class="link" target="_blank">Symmetro</a> uses the <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API" class="link" target="_blank">Web Crypto API</a> to perform all cryptographic functions in the browser, standing on the shoulders of giants and benefiting from native-code performance.
-    </p>
-    <p class="mt-2">
-        There is zero data in/out of this page; you <strong>SHOULD</strong> use this page offline for safety purposes, as an internet connection is not required. <a href="https://github.com/colthreepv/symmetro/releases" class="link" target="_blank">Download a release here.</a>
-    </p>
-    <p class="mt-2">The <a href="https://github.com/colthreepv/symmetro" class="link" target="_blank">entire codebase</a> is available and is distributed under a license that permits free use, modification, and distribution.</p>
-  </div>
-
-
-  <script type="module" src="main.js"></script>
-  <script type="module">
-    document.getElementById('version-text').innerText = `v${__APP_VERSION__}`;
-  </script>
+  <script type="module" src="main.ts"></script>
 </body>
-
 </html>
