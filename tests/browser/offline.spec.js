@@ -4,6 +4,27 @@ import { expect, test } from '@playwright/test'
 const artifactUrl = new URL('../../dist/index.html', import.meta.url)
 const fixture = JSON.parse(await readFile(new URL('../fixtures/legacy-v2.json', import.meta.url), 'utf8'))
 const { version } = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'))
+const tab = (page, name) => page.getByRole('tab', { name, exact: true })
+
+async function expectMode(page, mode) {
+  const textSelected = mode !== 'derive'
+  await expect(tab(page, 'Encrypt / Decrypt')).toHaveAttribute('aria-selected', String(textSelected))
+  await expect(tab(page, 'Derive')).toHaveAttribute('aria-selected', String(!textSelected))
+  await expect(page.locator('#tab-text')).toHaveAttribute('tabindex', textSelected ? '0' : '-1')
+  await expect(page.locator('#tab-derive')).toHaveAttribute('tabindex', textSelected ? '-1' : '0')
+  await expect(page.locator('#panel-text')).toHaveJSProperty('hidden', !textSelected)
+  for (const item of ['encrypt', 'decrypt', 'derive'])
+    await expect(page.locator(`#panel-${item}`)).toHaveJSProperty('hidden', item !== mode)
+  await expect(page.locator(`#panel-${mode}`)).toBeVisible()
+  if (textSelected) {
+    await expect(page.locator(`#tab-${mode}`)).toHaveAttribute('aria-selected', 'true')
+    await expect(page.locator(`#tab-${mode}`)).toHaveAttribute('tabindex', '0')
+    const other = mode === 'encrypt' ? 'decrypt' : 'encrypt'
+    await expect(page.locator(`#tab-${other}`)).toHaveAttribute('aria-selected', 'false')
+    await expect(page.locator(`#tab-${other}`)).toHaveAttribute('tabindex', '-1')
+  }
+  await expect(page).toHaveURL(`${artifactUrl.href}#${mode}`)
+}
 
 test('the downloaded HTML encrypts and decrypts offline without subresource requests', async ({ page, context }) => {
   const requests = []
@@ -21,7 +42,7 @@ test('the downloaded HTML encrypts and decrypts offline without subresource requ
   await expect(page.locator('#encrypted-text')).not.toHaveValue('')
   const encrypted = await page.locator('#encrypted-text').inputValue()
 
-  await page.getByRole('tab', { name: 'Decrypt' }).click()
+  await tab(page, 'Decrypt').click()
   await page.locator('#decrypt-text').fill(encrypted)
   await page.locator('#decrypt-secret').fill('synthetic browser password')
   await page.locator('#decrypt-button').click()
@@ -79,7 +100,7 @@ test('invalid input is recoverable and editing clears old results', async ({ pag
   await page.locator('#decrypt-secret').fill('changed password')
   await expect(page.locator('#decrypted-text')).toHaveValue('')
   await expect(page.locator('[data-copy="decrypted-text"]')).toBeDisabled()
-  await page.getByRole('tab', { name: 'Derive' }).click()
+  await tab(page, 'Derive').click()
   await page.locator('#derive-secret').fill(vectors[0].secret)
   await page.locator('#derive-index').fill('01')
   await page.locator('#derive-button').click()
@@ -87,22 +108,65 @@ test('invalid input is recoverable and editing clears old results', async ({ pag
   await expect(page.locator('#derived-password')).toHaveValue('')
 })
 
-test('tabs support keyboard and history; switching and reload clear fields', async ({ page }) => {
-  await page.goto(artifactUrl.href)
+test('nested keyboard navigation stays within its tablist and remembers the text mode', async ({ page }) => {
+  await page.goto(`${artifactUrl.href}#encrypt`)
+  await expect(page.locator('#tool-tabs')).toHaveAttribute('role', 'tablist')
+  await expect(page.locator('#text-tabs')).toHaveAttribute('role', 'tablist')
+  await expect(page.locator('#tab-text')).toHaveAttribute('aria-controls', 'panel-text')
+  await expect(page.locator('#panel-text')).toHaveAttribute('role', 'tabpanel')
+  await expect(page.locator('#panel-text #text-tabs')).toBeVisible()
+  await expectMode(page, 'encrypt')
   await page.locator('#secret').fill('synthetic password')
-  await page.getByRole('tab', { name: 'Encrypt' }).focus()
-  await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('tab', { name: 'Decrypt' })).toBeFocused()
-  await expect(page.getByRole('tab', { name: 'Decrypt' })).toHaveAttribute('aria-selected', 'true')
-  await expect(page.locator('#secret')).toHaveValue('')
-  await page.keyboard.press('End')
-  await expect(page.getByRole('tab', { name: 'Derive' })).toBeFocused()
+  await tab(page, 'Encrypt').focus()
+  for (const [key, mode] of [['ArrowRight', 'decrypt'], ['ArrowRight', 'encrypt'], ['ArrowLeft', 'decrypt'], ['Home', 'encrypt'], ['End', 'decrypt']]) {
+    await page.keyboard.press(key)
+    await expect(page.locator(`#tab-${mode}`)).toBeFocused()
+    await expectMode(page, mode)
+    await expect(page.locator('#secret')).toHaveValue('')
+  }
+  await page.locator('#decrypt-text').fill(fixture.payload)
+  await page.locator('#decrypt-secret').fill(fixture.password)
+  await page.locator('#decrypt-button').click()
+  await expect(page.locator('#decrypted-text')).toHaveValue(fixture.text)
+  // Activating the already selected tool preserves its current mode and result.
+  await tab(page, 'Encrypt / Decrypt').click()
+  await expectMode(page, 'decrypt')
+  await expect(page.locator('#decrypted-text')).toHaveValue(fixture.text)
+  for (const [key, mode, name] of [['ArrowRight', 'derive', 'Derive'], ['ArrowRight', 'decrypt', 'Encrypt / Decrypt'], ['ArrowLeft', 'derive', 'Derive'], ['Home', 'decrypt', 'Encrypt / Decrypt'], ['End', 'derive', 'Derive']]) {
+    await page.keyboard.press(key)
+    await expect(tab(page, name)).toBeFocused()
+    await expectMode(page, mode)
+    await expect(page.locator('#decrypt-secret')).toHaveValue('')
+    await expect(page.locator('#decrypted-text')).toHaveValue('')
+  }
+  await expect(page.locator('#tab-decrypt')).toHaveAttribute('aria-selected', 'true')
+  await expect(page.locator('#tab-decrypt')).toHaveAttribute('tabindex', '0')
+  await page.locator('#derive-secret').fill('synthetic secret')
+  await tab(page, 'Encrypt / Decrypt').click()
+  await expectMode(page, 'decrypt')
+  await expect(page.locator('#derive-secret')).toHaveValue('')
+})
+
+test('hash history, brand navigation and reload preserve selection while clearing fields', async ({ page }) => {
+  await page.goto(`${artifactUrl.href}#encrypt`)
+  await tab(page, 'Decrypt').click()
+  await expectMode(page, 'decrypt')
+  await tab(page, 'Derive').click()
+  await expectMode(page, 'derive')
   await page.locator('#derive-secret').fill('synthetic secret')
   await page.reload()
-  await expect(page.getByRole('tab', { name: 'Derive' })).toHaveAttribute('aria-selected', 'true')
+  await expectMode(page, 'derive')
   await expect(page.locator('#derive-secret')).toHaveValue('')
   await page.goBack()
-  await expect(page.getByRole('tab', { name: 'Decrypt' })).toHaveAttribute('aria-selected', 'true')
+  await expectMode(page, 'decrypt')
+  await page.locator('#decrypt-secret').fill('synthetic password')
+  await page.goForward()
+  await expectMode(page, 'derive')
+  await expect(page.locator('#decrypt-secret')).toHaveValue('')
+  await page.locator('.brand').click()
+  await expectMode(page, 'encrypt')
+  await expect(page.getByRole('heading', { name: 'Input', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Encrypted text', exact: true })).toBeVisible()
 })
 
 test('clearing or editing terminates the disposable derivation worker', async ({ page }) => {
@@ -151,11 +215,15 @@ test('a late encryption result cannot reappear after clearing or navigation', as
   await page.locator('#secret').fill('synthetic password')
   await page.locator('#encrypt-button').click()
   await expect.poll(() => page.evaluate(() => typeof window.releaseEncryption)).toBe('function')
-  await page.getByRole('tab', { name: 'Decrypt' }).click()
+  await page.locator('#theme-toggle').click()
+  await expect(page.locator('#encrypt-button')).toHaveAttribute('aria-busy', 'true')
+  await expect(page.locator('#encrypt-status')).toHaveText('Encrypting…')
+  await expect(page.locator('#secret')).toHaveValue('synthetic password')
+  await tab(page, 'Decrypt').click()
   await page.evaluate(() => window.releaseEncryption())
   await expect.poll(() => page.evaluate(() => window.encryptionFinished)).toBe(true)
   await expect(page.locator('#encrypted-text')).toHaveValue('')
-  await page.getByRole('tab', { name: 'Encrypt' }).click()
+  await tab(page, 'Encrypt').click()
   await expect(page.locator('#encrypted-text')).toHaveValue('')
   await expect(page.locator('#secret')).toHaveValue('')
 })
@@ -173,6 +241,8 @@ test('copy fallback selects and reveals a generated password if copying is unava
   await expect(page.locator('#derived-password')).toHaveValue(vectors[0].expected, { timeout: 20000 })
   await page.locator('[data-copy="derived-password"]').click()
   await expect(page.locator('#derived-password')).toHaveAttribute('type', 'text')
+  await expect(page.locator('[data-reveal="derived-password"]')).toHaveText('Hide')
+  await expect(page.locator('[data-reveal="derived-password"]')).toHaveAttribute('aria-label', 'Hide generated password')
   await expect(page.locator('#derived-password')).toBeFocused()
   await expect(page.locator('#derive-status')).toContainText('result is selected')
   const selected = await page.locator('#derived-password').evaluate(input => input.selectionEnd - input.selectionStart)
@@ -198,17 +268,139 @@ test('multiline secret paste and drop are rejected without changing the secret',
   await expect(page.locator('#derive-status')).toContainText('line breaks was not inserted')
 })
 
-for (const viewport of [{ name: 'desktop', width: 1440, height: 1180 }, { name: 'mobile', width: 390, height: 844 }]) {
-  test(`captures ${viewport.name} layout with no horizontal overflow`, async ({ page, context }) => {
+for (const mode of ['encrypt', 'decrypt', 'derive']) {
+  test(`theme changes preserve ${mode} inputs and results; reload defaults to dark despite OS light`, async ({ page, context }) => {
+    await context.setOffline(true)
+    await page.emulateMedia({ colorScheme: 'light' })
+    await page.goto(`${artifactUrl.href}#${mode}`)
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+    await expect(page.locator('#theme-toggle')).toHaveText('Light mode')
+    await expect(page.locator('#theme-toggle')).toHaveAccessibleName('Switch to light mode')
+    const ids = mode === 'encrypt' ? ['encrypt-text', 'secret', 'encrypted-text'] : mode === 'decrypt' ? ['decrypt-text', 'decrypt-secret', 'decrypted-text'] : ['derive-index', 'derive-secret', 'derived-password']
+    const input = mode === 'encrypt' ? 'Theme regression: café 🔐' : mode === 'decrypt' ? fixture.payload : '1'
+    const secret = mode === 'derive' ? vectors[0].secret : fixture.password
+    await page.locator(`#${ids[0]}`).fill(input)
+    await page.locator(`#${ids[1]}`).fill(secret)
+    await expect(page.locator(`#${mode}-button`)).toHaveAccessibleName(mode === 'derive' ? 'Generate' : mode === 'encrypt' ? 'Encrypt' : 'Decrypt')
+    await page.locator(`#${mode}-button`).click()
+    await expect(page.locator(`#${ids[2]}`)).not.toHaveValue('', { timeout: 20000 })
+    const result = await page.locator(`#${ids[2]}`).inputValue()
+    if (mode !== 'encrypt')
+      expect(result).toBe(mode === 'decrypt' ? fixture.text : vectors[0].expected)
+    const status = mode === 'encrypt' ? 'Encrypted.' : mode === 'decrypt' ? 'Decrypted.' : 'Generated.'
+    for (const theme of ['light', 'dark', 'light']) {
+      await page.locator('#theme-toggle').click()
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+      await expect(page.locator('#theme-toggle')).toHaveText(theme === 'light' ? 'Dark mode' : 'Light mode')
+      await expect(page.locator('#theme-toggle')).toHaveAccessibleName(theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode')
+      await expectMode(page, mode)
+      await expect(page.locator(`#${ids[0]}`)).toHaveValue(input)
+      await expect(page.locator(`#${ids[1]}`)).toHaveValue(secret)
+      await expect(page.locator(`#${ids[2]}`)).toHaveValue(result)
+      await expect(page.locator(`#${mode}-status`)).toHaveText(status)
+      await expect(page.locator(`[data-copy="${ids[2]}"]`)).toBeEnabled()
+    }
+    if (mode === 'derive') {
+      const reveal = page.locator('[data-reveal="derived-password"]')
+      await expect(reveal).toHaveText('Show')
+      await expect(reveal).toHaveAccessibleName('Show generated password')
+      await reveal.click()
+      await expect(reveal).toHaveText('Hide')
+      await expect(reveal).toHaveAccessibleName('Hide generated password')
+      await page.locator('#theme-toggle').click()
+      await expect(page.locator('#derived-password')).toHaveAttribute('type', 'text')
+      await expect(page.locator('#derived-password')).toHaveValue(result)
+      await reveal.click()
+      await expect(page.locator('#derived-password')).toHaveAttribute('type', 'password')
+      // Leave the page light before reloading to verify the default resets.
+      await page.locator('#theme-toggle').click()
+    }
+    await page.reload()
+    await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+    await expect(page.locator('#theme-toggle')).toHaveAccessibleName('Switch to light mode')
+    await expectMode(page, mode)
+    await expect(page.locator(`#${ids[1]}`)).toHaveValue('')
+    await expect(page.locator(`#${ids[2]}`)).toHaveValue('')
+    await expect(page.locator(`#${ids[0]}`)).toHaveValue(mode === 'derive' ? '1' : '')
+  })
+}
+
+test('copy and clear use concise feedback and reset copy readiness', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (text) => {
+      window.copiedText = text
+    } } })
+  })
+  await page.goto(`${artifactUrl.href}#decrypt`)
+  await page.locator('#decrypt-text').fill(fixture.payload)
+  await page.locator('#decrypt-secret').fill(fixture.password)
+  await page.locator('#decrypt-button').click()
+  await expect(page.locator('#decrypted-text')).toHaveValue(fixture.text)
+  const copy = page.locator('[data-copy="decrypted-text"]')
+  await copy.click()
+  await expect(copy).toHaveText('Copied.')
+  await expect(page.locator('#decrypt-status')).toHaveText('Copied.')
+  expect(await page.evaluate(() => window.copiedText)).toBe(fixture.text)
+  await page.locator('[data-clear="decrypt"]').click()
+  await expect(page.locator('#decrypt-status')).toHaveText('Cleared.')
+  await expect(copy).toHaveText('Copy')
+  await expect(copy).toBeDisabled()
+  await expect(page.locator('#decrypt-text')).toBeFocused()
+  await expect(page.locator('#decrypt-text')).toHaveValue('')
+  await expect(page.locator('#decrypt-secret')).toHaveValue('')
+  await expect(page.locator('#decrypted-text')).toHaveValue('')
+  await page.locator('#clear-session').click()
+  await expect(page.locator('#decrypt-status')).toHaveText('Cleared.')
+})
+
+for (const viewport of [{ name: 'wide', width: 1920, height: 1180 }, { name: 'mobile-390', width: 390, height: 844 }, { name: 'mobile-320', width: 320, height: 740 }]) {
+  test(`captures ${viewport.name} dark and light layouts with no horizontal overflow`, async ({ page, context }, testInfo) => {
+    test.setTimeout(60000)
     await context.setOffline(true)
     await page.setViewportSize({ width: viewport.width, height: viewport.height })
-    await page.goto(artifactUrl.href)
-    await expect(page.getByRole('heading', { name: 'Make it unreadable.' })).toBeVisible()
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-    await page.screenshot({ path: `test-results/screenshots/symmetro-${viewport.name}-encrypt.png`, fullPage: true })
-    await page.getByRole('tab', { name: 'Derive' }).click()
-    await expect(page.getByRole('heading', { name: 'One secret. Many passwords.' })).toBeVisible()
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-    await page.screenshot({ path: `test-results/screenshots/symmetro-${viewport.name}-derive.png`, fullPage: true })
+    await page.goto(`${artifactUrl.href}#encrypt`)
+    await page.screenshot({ path: `test-results/screenshots/symmetro-preview-${viewport.name}.png`, fullPage: true, animations: 'disabled' })
+    for (const mode of ['encrypt', 'decrypt', 'derive']) {
+      if (mode !== 'encrypt')
+        await tab(page, mode === 'decrypt' ? 'Decrypt' : 'Derive').click()
+      await expectMode(page, mode)
+      await expect(page.getByRole('heading', { name: mode === 'derive' ? 'Derive' : 'Input', exact: true, level: 2 })).toBeVisible()
+      if (mode === 'encrypt') {
+        await page.locator('#encrypt-text').fill('UnbrokenText'.repeat(40))
+        await page.locator('#secret').fill('synthetic layout password')
+      }
+      else if (mode === 'decrypt') {
+        await page.locator('#decrypt-text').fill(fixture.payload)
+        await page.locator('#decrypt-secret').fill(fixture.password)
+      }
+      else {
+        await page.locator('#derive-secret').fill(vectors[0].secret)
+      }
+      await page.locator(`#${mode}-button`).click()
+      const output = mode === 'encrypt' ? 'encrypted-text' : mode === 'decrypt' ? 'decrypted-text' : 'derived-password'
+      await expect(page.locator(`#${output}`)).not.toHaveValue('', { timeout: 20000 })
+      if (mode !== 'derive')
+        await expect(page.getByRole('heading', { name: mode === 'encrypt' ? 'Encrypted text' : 'Decrypted text', exact: true, level: 3 })).toBeVisible()
+      for (const theme of ['dark', 'light']) {
+        if (await page.locator('html').getAttribute('data-theme') !== theme)
+          await page.locator('#theme-toggle').click()
+        await expect(page.locator('html')).toHaveAttribute('data-theme', theme)
+        const bounds = await page.evaluate(() => ({
+          overflow: Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) > window.innerWidth,
+          shellWidth: document.querySelector('.shell').getBoundingClientRect().width,
+          shellLeft: document.querySelector('.shell').getBoundingClientRect().left,
+          shellRight: document.querySelector('.shell').getBoundingClientRect().right,
+        }))
+        expect(bounds.overflow).toBe(false)
+        expect(bounds.shellWidth).toBeLessThanOrEqual(1600)
+        expect(bounds.shellLeft).toBeGreaterThanOrEqual(0)
+        expect(bounds.shellRight).toBeLessThanOrEqual(viewport.width)
+        if (viewport.width === 1920)
+          expect(bounds.shellWidth).toBe(1600)
+        const screenshot = `test-results/screenshots/symmetro-${viewport.name}-${mode}-${theme}.png`
+        await page.screenshot({ path: screenshot, fullPage: true, animations: 'disabled' })
+        await testInfo.attach(`${mode}-${theme}`, { path: screenshot, contentType: 'image/png' })
+      }
+    }
   })
 }

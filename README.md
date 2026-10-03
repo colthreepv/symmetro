@@ -11,7 +11,7 @@ Download the HTML file attached to a release and open it in a modern browser.
 The file contains everything the app needs; no server or internet connection is
 required. Documentation links open external websites only when you follow them.
 
-Choose a tool:
+Choose **Encrypt / Decrypt** or **Derive**. In the text tool, select an operation:
 
 - **Encrypt:** protect text with a password, then save the encrypted result and keep the password separately
 - **Decrypt:** recover your text with the same password. Existing Symmetro encrypted text remains supported
@@ -29,8 +29,8 @@ changing your secret. Generated passwords have 43 characters and may not fit
 every service's password rules.
 
 Use **Copy** to copy a result, or select it manually if your browser does not
-allow clipboard access. Switching tools and reloading clear the fields. The app
-does not save your secrets or your number-to-purpose mapping.
+allow clipboard access. Switching tools or operations and reloading clear the
+fields. The app does not save your secrets or your number-to-purpose mapping.
 
 ## Keep your data safe
 

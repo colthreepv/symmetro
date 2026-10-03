@@ -23,8 +23,10 @@ source HTML or rely only on the development server.
 - `pnpm test:browser` opens the built HTML through `file://` with browser networking disabled and covers encryption/decryption, legacy ciphertext, independent derivation vectors, cancellation, navigation, input errors, clipboard fallback, and responsive layout
 - To use an existing Chromium installation, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path
 
-The browser suite captures empty-state desktop and mobile screenshots for Encrypt
-and Derive and checks for horizontal overflow. CI uploads the images as
+The browser suite captures populated Encrypt, Decrypt, and Derive screenshots in
+dark and light themes at 320, 390, and 1920 pixels, and checks for horizontal
+overflow and the 1600-pixel workspace cap. It also covers the nested tool/mode
+navigation and theme changes without losing inputs or results. CI uploads images as
 `symmetro-ui-screenshots`; inspect them as well as the test results. Use no real
 secrets in tests or screenshots.
 
@@ -71,6 +73,8 @@ or mappings are persisted in local/session storage. Copying is explicit, with a
 selection fallback. Clearing cannot guarantee erasure of browser memory or
 clipboard history.
 
-The interface uses local system fonts, keyboard-accessible tabs, and explicit
-pending/error states. There are no external runtime resources, telemetry, or
+The interface uses local system fonts, keyboard-accessible tool and mode tabs,
+and explicit pending/error states. Encrypt/Decrypt share one workspace; Derive
+has its own view. Dark mode is the default on every load, with a session-only
+light-mode toggle. There are no external runtime resources, telemetry, or
 backend. Documentation links navigate externally only when clicked.

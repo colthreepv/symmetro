@@ -4,12 +4,13 @@ import { DERIVATION_VERSION, MAX_PASSWORD_INDEX, nextPasswordIndex, parsePasswor
 import DeriveWorker from './derive.worker?worker&inline'
 
 type Mode = 'encrypt' | 'decrypt' | 'derive'
+type TextMode = Exclude<Mode, 'derive'>
 type ValueElement = HTMLInputElement | HTMLTextAreaElement
 const modes: Mode[] = ['encrypt', 'decrypt', 'derive']
 const fields: Record<Mode, { input: string, secret: string, output: string, button: string, label: string }> = {
-  encrypt: { input: 'encrypt-text', secret: 'secret', output: 'encrypted-text', button: 'encrypt-button', label: 'Encrypt message' },
-  decrypt: { input: 'decrypt-text', secret: 'decrypt-secret', output: 'decrypted-text', button: 'decrypt-button', label: 'Decrypt message' },
-  derive: { input: 'derive-index', secret: 'derive-secret', output: 'derived-password', button: 'derive-button', label: 'Generate password' },
+  encrypt: { input: 'encrypt-text', secret: 'secret', output: 'encrypted-text', button: 'encrypt-button', label: 'Encrypt' },
+  decrypt: { input: 'decrypt-text', secret: 'decrypt-secret', output: 'decrypted-text', button: 'decrypt-button', label: 'Decrypt' },
+  derive: { input: 'derive-index', secret: 'derive-secret', output: 'derived-password', button: 'derive-button', label: 'Generate' },
 }
 function element<T extends HTMLElement>(id: string): T {
   const value = document.getElementById(id)
@@ -19,6 +20,7 @@ function element<T extends HTMLElement>(id: string): T {
 }
 const valueElement = (id: string) => element<ValueElement>(id)
 let activeMode: Mode = 'encrypt'
+let lastTextMode: TextMode = 'encrypt'
 let revision = 0
 let busy = false
 let currentWorker: { worker: Worker, reject: (reason: Error) => void } | undefined
@@ -53,7 +55,7 @@ function hideSecret(id: string): void {
   const input = element<HTMLInputElement>(id)
   input.type = 'password'
   const toggle = document.querySelector<HTMLButtonElement>(`[data-reveal="${id}"]`)!
-  toggle.textContent = id === 'derived-password' ? 'Show password' : 'Show'
+  toggle.textContent = 'Show'
   toggle.setAttribute('aria-pressed', 'false')
   toggle.setAttribute('aria-label', id === 'derive-secret' ? 'Show secret text' : id === 'derived-password' ? 'Show generated password' : 'Show password')
 }
@@ -62,7 +64,7 @@ function clearOutput(mode: Mode): void {
   output.value = ''
   delete output.dataset.ready
   const copy = document.querySelector<HTMLButtonElement>(`[data-copy="${fields[mode].output}"]`)!
-  copy.textContent = 'Copy ⧉'
+  copy.textContent = 'Copy'
   if (mode === 'derive')
     hideSecret('derived-password')
 }
@@ -93,21 +95,26 @@ function clearAll(): void {
   element('encrypt-count').textContent = '0 characters'
   updateButtons()
 }
-function selectMode(mode: Mode, focus = false, updateHash = true): void {
+function selectMode(mode: Mode, updateHash = true): void {
   if (activeMode !== mode)
     clearAll()
   activeMode = mode
+  if (mode !== 'derive')
+    lastTextMode = mode
+  const textSelected = mode !== 'derive'
+  element('panel-text').hidden = !textSelected
+  const textTab = element<HTMLButtonElement>('tab-text')
+  textTab.setAttribute('aria-selected', String(textSelected))
+  textTab.tabIndex = textSelected ? 0 : -1
   for (const item of modes) {
-    const selected = item === mode
-    element(`panel-${item}`).hidden = !selected
+    element(`panel-${item}`).hidden = item !== mode
+    const selected = item === 'derive' ? mode === 'derive' : item === lastTextMode
     const tab = element<HTMLButtonElement>(`tab-${item}`)
     tab.setAttribute('aria-selected', String(selected))
     tab.tabIndex = selected ? 0 : -1
   }
   if (updateHash && window.location.hash !== `#${mode}`)
     window.location.hash = mode
-  if (focus)
-    element(`tab-${mode}`).focus()
   updateButtons()
 }
 function readHash(): Mode {
@@ -191,7 +198,7 @@ async function run(mode: Mode): Promise<void> {
         throw new Error('Unsupported recipe version.')
     }
     setBusy(mode, true)
-    setStatus(mode, mode === 'derive' ? 'Deriving locally. This may take a moment…' : 'Working locally…')
+    setStatus(mode, mode === 'derive' ? 'Deriving…' : mode === 'encrypt' ? 'Encrypting…' : 'Decrypting…')
     let result: string
     if (mode === 'encrypt')
       result = encodePayload(await encryptText(input, secret))
@@ -206,7 +213,7 @@ async function run(mode: Mode): Promise<void> {
     output.dataset.ready = 'true'
     if (mode === 'derive')
       element('derived-label').textContent = `Password #${input}`
-    setStatus(mode, mode === 'encrypt' ? 'Message encrypted. Keep the password separate.' : mode === 'decrypt' ? 'Message decrypted.' : `Password #${input} generated with recipe v1.`)
+    setStatus(mode, mode === 'encrypt' ? 'Encrypted.' : mode === 'decrypt' ? 'Decrypted.' : 'Generated.')
   }
   catch (error) {
     if (token !== revision || activeMode !== mode)
@@ -253,14 +260,14 @@ async function copyResult(button: HTMLButtonElement): Promise<void> {
     button.focus()
   }
   if (copied) {
-    button.textContent = 'Copied ✓'
-    setStatus(mode, 'Copied. Your clipboard or clipboard history may keep a copy.')
+    button.textContent = 'Copied.'
+    setStatus(mode, 'Copied.')
   }
   else {
     if (output instanceof HTMLInputElement && output.type === 'password') {
       output.type = 'text'
       const reveal = document.querySelector<HTMLButtonElement>(`[data-reveal="${output.id}"]`)!
-      reveal.textContent = 'Hide password'
+      reveal.textContent = 'Hide'
       reveal.setAttribute('aria-pressed', 'true')
       reveal.setAttribute('aria-label', 'Hide generated password')
     }
@@ -289,22 +296,44 @@ for (const mode of modes) {
       updateButtons()
     })
   })
-  element(`tab-${mode}`).addEventListener('click', () => selectMode(mode))
-  element(`tab-${mode}`).addEventListener('keydown', (event) => {
-    const index = modes.indexOf(mode)
-    const target = event.key === 'ArrowRight' ? modes[(index + 1) % modes.length] : event.key === 'ArrowLeft' ? modes[(index + modes.length - 1) % modes.length] : event.key === 'Home' ? modes[0] : event.key === 'End' ? modes[modes.length - 1] : undefined
-    if (target) {
-      event.preventDefault()
-      selectMode(target, true)
-    }
+}
+// Each list has its own roving tab stop and automatic activation.
+for (const ids of [['tab-text', 'tab-derive'], ['tab-encrypt', 'tab-decrypt']]) {
+  const activate = (id: string, focus = false) => {
+    const mode = id === 'tab-text' ? lastTextMode : id.slice(4) as Mode
+    selectMode(mode)
+    if (focus)
+      element(id).focus()
+  }
+  ids.forEach((id, index) => {
+    const tab = element<HTMLButtonElement>(id)
+    tab.addEventListener('click', () => activate(id))
+    tab.addEventListener('keydown', (event) => {
+      const target = event.key === 'ArrowRight' ? ids[(index + 1) % ids.length] : event.key === 'ArrowLeft' ? ids[(index + ids.length - 1) % ids.length] : event.key === 'Home' ? ids[0] : event.key === 'End' ? ids[ids.length - 1] : undefined
+      if (target) {
+        event.preventDefault()
+        activate(target, true)
+      }
+    })
   })
 }
+
+function setTheme(theme: 'dark' | 'light'): void {
+  document.documentElement.dataset.theme = theme
+  const toggle = element<HTMLButtonElement>('theme-toggle')
+  toggle.textContent = theme === 'dark' ? 'Light mode' : 'Dark mode'
+  toggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode')
+}
+setTheme('dark')
+element('theme-toggle').addEventListener('click', () => {
+  setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark')
+})
 document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach((button) => {
   button.addEventListener('click', () => {
     const input = element<HTMLInputElement>(button.dataset.reveal!)
     const show = input.type === 'password'
     input.type = show ? 'text' : 'password'
-    button.textContent = input.id === 'derived-password' ? `${show ? 'Hide' : 'Show'} password` : show ? 'Hide' : 'Show'
+    button.textContent = show ? 'Hide' : 'Show'
     button.setAttribute('aria-pressed', String(show))
     button.setAttribute('aria-label', `${show ? 'Hide' : 'Show'} ${input.id === 'derive-secret' ? 'secret text' : input.id === 'derived-password' ? 'generated password' : 'password'}`)
   })
@@ -319,12 +348,12 @@ document.querySelectorAll<HTMLButtonElement>('[data-clear]').forEach(button => b
   element('encrypt-count').textContent = '0 characters'
   updateButtons()
   valueElement(mode === 'derive' ? 'derive-secret' : fields[mode].input).focus()
-  setStatus(mode, 'Fields cleared.')
+  setStatus(mode, 'Cleared.')
 }))
 element('clear-session').addEventListener('click', () => {
   clearAll()
   valueElement(activeMode === 'derive' ? 'derive-secret' : fields[activeMode].input).focus()
-  setStatus(activeMode, 'All fields cleared. Clipboard contents are unchanged.')
+  setStatus(activeMode, 'Cleared.')
 })
 element('next-password').addEventListener('click', () => {
   if (busy)
@@ -355,7 +384,7 @@ element('derive-secret').addEventListener('drop', (event) => {
     setStatus('derive', 'Use single-line secret text. Text containing line breaks was not inserted.', true)
   }
 })
-window.addEventListener('hashchange', () => selectMode(readHash(), false, false))
+window.addEventListener('hashchange', () => selectMode(readHash(), false))
 window.addEventListener('pagehide', clearAll)
 window.addEventListener('pageshow', (event) => {
   if (event.persisted)
@@ -368,4 +397,4 @@ if (!supported) {
   warning.textContent = 'This browser does not provide Web Crypto. Open the downloaded file in a current browser to use these tools.'
 }
 clearAll()
-selectMode(readHash(), false, false)
+selectMode(readHash(), false)
