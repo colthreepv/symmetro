@@ -15,6 +15,16 @@ The production build cleans `dist` and produces exactly one file,
 directly from the filesystem to test the downloadable app. Do not deliver the
 source HTML or rely only on the development server.
 
+The build embeds third-party runtime notices as a comment in the standalone
+HTML. `scripts/third-party-notices.js` reads the installed `hash-wasm` license,
+bundled helper notice, and Argon2/BLAKE2b source attributions, plus the Go BSD
+notice retained in `scripts/licenses/` for the Argon2 implementation credited by
+hash-wasm. The BLAKE2b reference code offers CC0 as one license option; that is
+the option used here. Artifact validation requires the complete notices after
+minification and worker inlining. Review this list when adding or updating
+runtime dependencies. Build-tool licenses are not included because those tools
+are not shipped in the app.
+
 ## Toolchain choices
 
 This is one small package, so it uses the npm bundled with the pinned Node
@@ -73,6 +83,31 @@ Pull requests and pushes to `main` run the checks above and upload the verified
 HTML as the `symmetro-standalone-html` Actions artifact. Tagged releases run the
 same checks before attestation, draft-release creation, and Pages deployment.
 Only release/deployment jobs receive write permissions.
+
+## Preparing and publishing a release
+
+1. Merge the intended changes and confirm the checks pass for the exact final
+   `main` commit. Run `npm ci --ignore-scripts`, `npm run check`, and
+   `npm run test:browser` when verifying locally; inspect the built HTML and
+   screenshots. Automated browser coverage currently uses Chromium.
+2. Keep `package.json` and both root version fields in `package-lock.json` in
+   sync. The app displays the package version. Update the matching changelog
+   entry with the release date when publication is approved. Application version
+   changes must not change the frozen recipe or legacy ciphertext format.
+3. Review the final commit, changelog, and expected `v<package-version>` tag
+   together before creating or pushing a tag. The workflow accepts any `v*` tag;
+   the maintainer must verify that it matches the package version.
+4. **Pushing the tag publishes the built app to GitHub Pages automatically, even
+   though the GitHub release is created as a draft.** Preparing a release branch
+   or draft text does not require pushing the tag. Obtain publication approval
+   before triggering this workflow.
+5. On the tagged commit, verify the full Deploy workflow, the versioned HTML
+   asset (`symmetro-v<package-version>.html`), and its GitHub build attestation.
+   Download that exact asset and check it offline. Confirm the live Pages version
+   separately; local checks cannot verify the hosted release or attestation.
+6. Add the reviewed changelog text to the draft release, then publish the release
+   when approved. Keep the release asset and source tag aligned; do not rebuild or
+   replace a published asset from a different commit.
 
 ## Legacy encryption compatibility
 
