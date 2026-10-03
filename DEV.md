@@ -78,3 +78,9 @@ and explicit pending/error states. Encrypt/Decrypt share one workspace; Derive
 has its own view. Dark mode is the default on every load, with a session-only
 light-mode toggle. There are no external runtime resources, telemetry, or
 backend. Documentation links navigate externally only when clicked.
+
+Action buttons show pending, success, and error icons. Routine feedback remains
+available to screen readers; only actionable errors appear below the controls.
+Decrypt also checks the password after a short typing pause without displaying
+plaintext. Editing, clearing, or navigation invalidates pending checks so stale
+validation cannot change the current indicator or result.

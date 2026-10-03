@@ -12,7 +12,6 @@
       <a class="brand" href="#encrypt" aria-label="Symmetro home"><span class="brand-mark" aria-hidden="true">s<span>:</span></span><span>symmetro</span><span class="version" id="version-text"></span></a>
       <div class="header-actions">
         <button type="button" class="quiet-button theme-toggle" id="theme-toggle" aria-label="Switch to light mode">Light mode</button>
-        <button type="button" class="quiet-button" id="clear-session" title="Clear all inputs and results">Clear all</button>
       </div>
     </header>
 
@@ -22,7 +21,6 @@
           <button id="tab-text" role="tab" aria-selected="true" aria-controls="panel-text" tabindex="0"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="8" width="12" height="9" rx="2"/><path d="M6.5 8V5.5a3.5 3.5 0 0 1 7 0V8M10 11v3"/></svg>Encrypt / Decrypt</button>
           <button id="tab-derive" role="tab" aria-selected="false" aria-controls="panel-derive" tabindex="-1" data-mode="derive"><span class="hash-symbol" aria-hidden="true">#</span>Derive</button>
         </div>
-        <span class="local-badge" title="All processing runs in this browser. The downloaded HTML works offline."><i aria-hidden="true"></i>Local · Offline</span>
       </div>
 
       <div id="capability-warning" class="capability-warning" role="alert" hidden></div>
@@ -41,7 +39,7 @@
             <div class="panel-heading"><h2>Input</h2><span id="encrypt-count" class="field-meta">0 characters</span></div>
             <div class="field text-field"><label for="encrypt-text">Plain text</label><textarea id="encrypt-text" rows="10" spellcheck="false" autocomplete="off"></textarea></div>
             <div class="field"><label for="secret">Password</label><div class="secret-field"><input type="password" id="secret" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="secret" aria-label="Show password" aria-pressed="false">Show</button></div></div>
-            <div class="form-actions"><button type="submit" id="encrypt-button" class="primary-button">Encrypt <span aria-hidden="true">→</span></button><button type="button" data-clear="encrypt" class="text-button">Clear</button></div>
+            <div class="form-actions"><button type="submit" id="encrypt-button" class="primary-button"><span class="button-label">Encrypt</span><span class="button-icon" aria-hidden="true">→</span></button><button type="button" data-clear="encrypt" class="text-button">Clear</button></div>
             <p id="encrypt-status" class="status" role="status" aria-live="polite"></p>
           </form>
           <div class="output-panel">
@@ -54,8 +52,8 @@
           <form id="decrypt-form" class="input-panel">
             <div class="panel-heading"><h2>Input</h2></div>
             <div class="field text-field"><label for="decrypt-text">Encrypted text</label><textarea id="decrypt-text" class="mono" rows="10" spellcheck="false" autocomplete="off"></textarea></div>
-            <div class="field"><label for="decrypt-secret">Password</label><div class="secret-field"><input type="password" id="decrypt-secret" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="decrypt-secret" aria-label="Show password" aria-pressed="false">Show</button></div></div>
-            <div class="form-actions"><button type="submit" id="decrypt-button" class="primary-button">Decrypt <span aria-hidden="true">→</span></button><button type="button" data-clear="decrypt" class="text-button">Clear</button></div>
+            <div class="field"><label for="decrypt-secret" class="password-label">Password <span id="decrypt-validation" class="password-validation" role="status" aria-live="polite" data-state="idle"><span class="validation-icon" aria-hidden="true"></span><span class="sr-only"></span></span></label><div class="secret-field"><input type="password" id="decrypt-secret" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="decrypt-secret" aria-label="Show password" aria-pressed="false">Show</button></div></div>
+            <div class="form-actions"><button type="submit" id="decrypt-button" class="primary-button"><span class="button-label">Decrypt</span><span class="button-icon" aria-hidden="true">→</span></button><button type="button" data-clear="decrypt" class="text-button">Clear</button></div>
             <p id="decrypt-status" class="status" role="status" aria-live="polite"></p>
           </form>
           <div class="output-panel">
@@ -74,7 +72,7 @@
               <div class="field"><label for="derive-index">Password number</label><div class="number-field"><span aria-hidden="true">#</span><input type="text" inputmode="numeric" id="derive-index" value="1" autocomplete="off" spellcheck="false" aria-describedby="index-help"></div><p id="index-help" class="field-help">Remember the number used for each password.</p></div>
               <div class="field"><label for="derive-version">Recipe</label><select id="derive-version" aria-describedby="recipe-help"><option value="1">v1</option></select></div>
             </div>
-            <div class="form-actions"><button type="submit" id="derive-button" class="primary-button">Generate <span aria-hidden="true">→</span></button><button type="button" data-clear="derive" class="text-button">Clear</button></div>
+            <div class="form-actions"><button type="submit" id="derive-button" class="primary-button"><span class="button-label">Generate</span><span class="button-icon" aria-hidden="true">→</span></button><button type="button" data-clear="derive" class="text-button">Clear</button></div>
             <p id="derive-status" class="status" role="status" aria-live="polite"></p>
           </form>
           <div class="output-panel derive-output">
@@ -96,7 +94,7 @@
         </div>
       </details>
     </main>
-    <footer><span>Browser processing · No network requests</span><div><a href="https://github.com/colthreepv/symmetro" target="_blank" rel="noopener noreferrer">Source ↗</a><a href="https://github.com/colthreepv/symmetro/releases" target="_blank" rel="noopener noreferrer">Download HTML ↗</a></div></footer>
+    <footer><div><a href="https://github.com/colthreepv/symmetro" target="_blank" rel="noopener noreferrer">Source ↗</a><a href="https://github.com/colthreepv/symmetro/releases" target="_blank" rel="noopener noreferrer">Download HTML ↗</a></div></footer>
   </div>
   <script type="module" src="main.ts"></script>
 </body>

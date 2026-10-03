@@ -23,6 +23,10 @@ let activeMode: Mode = 'encrypt'
 let lastTextMode: TextMode = 'encrypt'
 let revision = 0
 let busy = false
+let validationTimer: ReturnType<typeof setTimeout> | undefined
+let validationFlight: Promise<void> | undefined
+let queuedValidation: number | undefined
+const composing = new Set<EventTarget>()
 let currentWorker: { worker: Worker, reject: (reason: Error) => void } | undefined
 const supported = Boolean(globalThis.crypto?.subtle)
 
@@ -30,12 +34,24 @@ function setStatus(mode: Mode, message = '', error = false): void {
   const target = element(`${mode}-status`)
   target.textContent = message
   target.dataset.error = String(error)
+  if (error)
+    setButtonState(mode, 'error')
+}
+function setButtonState(mode: Mode, state: 'idle' | 'pending' | 'success' | 'error'): void {
+  const button = element<HTMLButtonElement>(fields[mode].button)
+  button.dataset.state = state
+  button.querySelector('.button-label')!.textContent = fields[mode].label
+  const icon = button.querySelector<HTMLElement>('.button-icon')!
+  icon.textContent = state === 'pending' ? '' : state === 'success' ? '✓' : state === 'error' ? '!' : '→'
+  icon.classList.toggle('spinner', state === 'pending')
+  button.title = state === 'pending' ? 'Working…' : state === 'success' ? 'Completed' : state === 'error' ? 'Check the error below' : fields[mode].label
 }
 function setBusy(mode: Mode, pending: boolean): void {
   busy = pending
   const button = element<HTMLButtonElement>(fields[mode].button)
   button.setAttribute('aria-busy', String(pending))
-  button.firstChild!.textContent = pending ? 'Working… ' : `${fields[mode].label} `
+  if (pending)
+    setButtonState(mode, 'pending')
   updateButtons()
 }
 function updateButtons(): void {
@@ -70,16 +86,24 @@ function clearOutput(mode: Mode): void {
 }
 function invalidate(): void {
   revision += 1
+  clearTimeout(validationTimer)
+  validationTimer = undefined
+  queuedValidation = undefined
+  setValidation('idle')
   if (currentWorker) {
     const job = currentWorker
     currentWorker = undefined
     job.worker.terminate()
     job.reject(new DOMException('Operation cancelled', 'AbortError'))
   }
-  for (const mode of modes)
+  for (const mode of modes) {
     setBusy(mode, false)
+    setButtonState(mode, 'idle')
+  }
 }
 function resetMode(mode: Mode): void {
+  if (mode === 'decrypt')
+    composing.clear()
   const config = fields[mode]
   valueElement(config.input).value = mode === 'derive' ? '1' : ''
   valueElement(config.secret).value = ''
@@ -136,6 +160,61 @@ function decodePayload(text: string): Uint8Array {
   if (binary.length < 44)
     throw new Error('invalid payload')
   return Uint8Array.from(binary, character => character.charCodeAt(0))
+}
+function setValidation(state: 'idle' | 'pending' | 'valid' | 'invalid'): void {
+  const target = element('decrypt-validation')
+  const message = state === 'valid' ? 'Password matches' : state === 'invalid' ? 'Password does not match or encrypted text is invalid' : state === 'pending' ? 'Checking password…' : ''
+  target.dataset.state = state
+  target.title = message
+  const icon = target.querySelector<HTMLElement>('.validation-icon')!
+  icon.textContent = state === 'valid' ? '✓' : state === 'invalid' ? '×' : ''
+  icon.classList.toggle('spinner', state === 'pending')
+  target.querySelector('.sr-only')!.textContent = message
+  const secret = element('decrypt-secret')
+  if (state === 'valid' || state === 'invalid')
+    secret.setAttribute('aria-invalid', String(state === 'invalid'))
+  else
+    secret.removeAttribute('aria-invalid')
+}
+function scheduleValidation(): void {
+  if (!supported || activeMode !== 'decrypt' || composing.size || !valueElement('decrypt-text').value || !valueElement('decrypt-secret').value)
+    return
+  const token = revision
+  validationTimer = setTimeout(() => {
+    validationTimer = undefined
+    void checkPassword(token)
+  }, 275)
+}
+async function checkPassword(token: number): Promise<void> {
+  if (token !== revision || activeMode !== 'decrypt' || busy || composing.size)
+    return
+  setValidation('pending')
+  if (validationFlight) {
+    queuedValidation = token
+    return
+  }
+  const text = valueElement('decrypt-text').value
+  const secret = valueElement('decrypt-secret').value
+  if (!text || !secret)
+    return
+  // Only one authenticated check runs at a time; edits retain only the latest request.
+  const flight = (async () => {
+    let valid = false
+    try {
+      await decryptText(decodePayload(text), secret)
+      valid = true
+    }
+    catch { /* A wrong password and an invalid payload have the same feedback. */ }
+    if (token === revision && activeMode === 'decrypt' && !busy)
+      setValidation(valid ? 'valid' : 'invalid')
+  })()
+  validationFlight = flight
+  await flight
+  validationFlight = undefined
+  const queued = queuedValidation
+  queuedValidation = undefined
+  if (queued !== undefined)
+    void checkPassword(queued)
 }
 function deriveInWorker(secret: string, index: string, version: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -199,6 +278,11 @@ async function run(mode: Mode): Promise<void> {
     }
     setBusy(mode, true)
     setStatus(mode, mode === 'derive' ? 'Deriving…' : mode === 'encrypt' ? 'Encrypting…' : 'Decrypting…')
+    if (mode === 'decrypt' && validationFlight) {
+      await validationFlight
+      if (token !== revision || activeMode !== mode)
+        return
+    }
     let result: string
     if (mode === 'encrypt')
       result = encodePayload(await encryptText(input, secret))
@@ -213,12 +297,17 @@ async function run(mode: Mode): Promise<void> {
     output.dataset.ready = 'true'
     if (mode === 'derive')
       element('derived-label').textContent = `Password #${input}`
+    if (mode === 'decrypt')
+      setValidation('valid')
+    setButtonState(mode, 'success')
     setStatus(mode, mode === 'encrypt' ? 'Encrypted.' : mode === 'decrypt' ? 'Decrypted.' : 'Generated.')
   }
   catch (error) {
     if (token !== revision || activeMode !== mode)
       return
     const message = mode === 'decrypt' ? 'Could not decrypt. Check the password and the complete encrypted text.' : error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+    if (mode === 'decrypt')
+      setValidation('invalid')
     setStatus(mode, message, true)
   }
   finally {
@@ -273,7 +362,7 @@ async function copyResult(button: HTMLButtonElement): Promise<void> {
     }
     output.focus()
     output.select()
-    setStatus(mode, 'Automatic copy is unavailable. The result is selected; use your device’s Copy command.')
+    setStatus(mode, 'Automatic copy is unavailable. The result is selected; use your device’s Copy command.', true)
   }
 }
 
@@ -294,7 +383,23 @@ for (const mode of modes) {
       if (mode === 'derive')
         element('derived-label').textContent = `Password #${valueElement('derive-index').value || '—'}`
       updateButtons()
+      if (mode === 'decrypt')
+        scheduleValidation()
     })
+    if (mode === 'decrypt') {
+      input.addEventListener('compositionstart', () => {
+        composing.add(input)
+        invalidate()
+        clearOutput(mode)
+        setStatus(mode)
+        updateButtons()
+      })
+      input.addEventListener('compositionend', () => {
+        composing.delete(input)
+        invalidate()
+        scheduleValidation()
+      })
+    }
   })
 }
 // Each list has its own roving tab stop and automatic activation.
@@ -328,6 +433,18 @@ setTheme('dark')
 element('theme-toggle').addEventListener('click', () => {
   setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark')
 })
+const readonlyOutputs = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input[readonly], textarea[readonly]')
+readonlyOutputs.forEach((output) => {
+  output.addEventListener('pointerdown', () => {
+    output.dataset.pointerFocus = 'true'
+  })
+  output.addEventListener('blur', () => {
+    delete output.dataset.pointerFocus
+  })
+})
+document.addEventListener('keydown', () => {
+  readonlyOutputs.forEach(output => delete output.dataset.pointerFocus)
+}, true)
 document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach((button) => {
   button.addEventListener('click', () => {
     const input = element<HTMLInputElement>(button.dataset.reveal!)
@@ -350,11 +467,6 @@ document.querySelectorAll<HTMLButtonElement>('[data-clear]').forEach(button => b
   valueElement(mode === 'derive' ? 'derive-secret' : fields[mode].input).focus()
   setStatus(mode, 'Cleared.')
 }))
-element('clear-session').addEventListener('click', () => {
-  clearAll()
-  valueElement(activeMode === 'derive' ? 'derive-secret' : fields[activeMode].input).focus()
-  setStatus(activeMode, 'Cleared.')
-})
 element('next-password').addEventListener('click', () => {
   if (busy)
     return
