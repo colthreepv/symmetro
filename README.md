@@ -11,26 +11,33 @@ Download the HTML file attached to a release and open it in a modern browser.
 The file contains everything the app needs; no server or internet connection is
 required. Documentation links open external websites only when you follow them.
 
-Choose a tool:
+Choose **Encrypt / Decrypt** or **Derive**. In the text tool, select an operation:
 
 - **Encrypt:** protect text with a password, then save the encrypted result and keep the password separately
 - **Decrypt:** recover your text with the same password. Existing Symmetro encrypted text remains supported
-- **Derive:** enter a secret and a password number to recreate a numbered password. The same secret, recipe version, and number always give the same result
+- **Derive:** enter a secret, password number, and length to recreate a numbered password. The same inputs and recipe version always give the same result
+
+In Decrypt, a small indicator checks whether the password matches while you type.
+Choose **Show Clear Text** to display the recovered text.
 
 ## Numbered passwords
 
 Keep track of which number you use for each purpose. There are no service names,
 accounts, saved profiles, or saved password lists. To reproduce a password later,
-you need the exact same secret, recipe version, and number.
+you need the exact same secret, recipe version, number, and selected length.
+Use a different password number for each account. Changing the length alone
+does not create an independent password.
 
 The secret field accepts **one line of text**. Spaces, capitalization, and exact
 characters matter. Multiline paste and drop are rejected rather than silently
-changing your secret. Generated passwords have 43 characters and may not fit
-every service's password rules.
+changing your secret. Choose **16**, **24**, or **Max (43)** characters; Max is
+selected initially. Shorter lengths use the first characters of the same
+generated password. Keep the same length when recreating it. These presets
+may not fit every service's password rules.
 
 Use **Copy** to copy a result, or select it manually if your browser does not
-allow clipboard access. Switching tools and reloading clear the fields. The app
-does not save your secrets or your number-to-purpose mapping.
+allow clipboard access. Switching tools or operations and reloading clear the
+fields. The app does not save your secrets or your number-to-purpose mapping.
 
 ## Keep your data safe
 

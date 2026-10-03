@@ -1,93 +1,141 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Encrypt text, decrypt it, and generate reproducible numbered passwords. One self-contained page. Works offline.">
-  <title>Symmetro — Your secrets, locally</title>
+  <meta name="description" content="Offline text encryption and reproducible numbered passwords.">
+  <title>Symmetro</title>
 </head>
 <body>
   <div class="shell">
     <header class="site-header">
-      <a class="brand" href="#encrypt" aria-label="Symmetro home"><span class="brand-mark" aria-hidden="true">s<span>:</span></span>symmetro<span class="version" id="version-text"></span></a>
-      <div class="header-actions"><span class="offline-badge"><i aria-hidden="true"></i> Offline-ready</span><button type="button" class="quiet-button" id="clear-session">Clear session <span aria-hidden="true">↗</span></button></div>
+      <a class="brand" href="#encrypt" aria-label="Symmetro home"><span class="brand-mark" aria-hidden="true">s<span>:</span></span><span>symmetro</span><span class="version" id="version-text"></span></a>
+      <div class="header-actions">
+        <button type="button" class="quiet-button theme-toggle" id="theme-toggle" aria-label="Switch to light mode">Light mode</button>
+      </div>
     </header>
 
     <main>
-      <section class="intro" aria-labelledby="page-title">
-        <div><p class="eyebrow">A little privacy goes a long way</p><h1 id="page-title">Your secrets.<br><span>Your browser.</span></h1></div>
-        <div class="intro-copy"><p>A quiet place to protect text and create<br class="desktop-break"> passwords you can find again.</p><p class="local-note"><span aria-hidden="true">↳</span> No account. No server. Nothing saved by the app.</p></div>
-      </section>
-
-      <section class="workspace" aria-label="Privacy tools">
-        <div class="toolbar">
-          <div class="tabs" role="tablist" aria-label="Choose a tool">
-            <button id="tab-encrypt" role="tab" aria-selected="true" aria-controls="panel-encrypt" tabindex="0" data-mode="encrypt"><span class="tab-symbol" aria-hidden="true">↗</span> Encrypt</button>
-            <button id="tab-decrypt" role="tab" aria-selected="false" aria-controls="panel-decrypt" tabindex="-1" data-mode="decrypt"><span class="tab-symbol" aria-hidden="true">↙</span> Decrypt</button>
-            <button id="tab-derive" role="tab" aria-selected="false" aria-controls="panel-derive" tabindex="-1" data-mode="derive"><span class="tab-symbol" aria-hidden="true">#</span> Derive</button>
-          </div>
-          <span class="toolbar-note">Everything happens here</span>
+      <div class="tool-navigation">
+        <div class="tool-tabs" id="tool-tabs" role="tablist" aria-label="Tools">
+          <button id="tab-text" role="tab" aria-selected="true" aria-controls="panel-text" tabindex="0"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="8" width="12" height="9" rx="2"/><path d="M6.5 8V5.5a3.5 3.5 0 0 1 7 0V8M10 11v3"/></svg>Encrypt / Decrypt</button>
+          <button id="tab-derive" role="tab" aria-selected="false" aria-controls="panel-derive" tabindex="-1" data-mode="derive"><span class="hash-symbol" aria-hidden="true">#</span>Derive</button>
         </div>
+      </div>
 
-        <div id="capability-warning" class="capability-warning" role="alert" hidden></div>
+      <div id="capability-warning" class="capability-warning" role="alert" hidden></div>
+
+      <section id="panel-text" class="workspace" role="tabpanel" aria-labelledby="tab-text">
+        <div class="toolbar">
+          <div class="mode-tabs" id="text-tabs" role="tablist" aria-label="Text operation">
+            <button id="tab-encrypt" role="tab" aria-selected="true" aria-controls="panel-encrypt" tabindex="0" data-mode="encrypt">Encrypt</button>
+            <button id="tab-decrypt" role="tab" aria-selected="false" aria-controls="panel-decrypt" tabindex="-1" data-mode="decrypt">Decrypt</button>
+          </div>
+          <span class="format-tag" title="AES-256-GCM. Password key: PBKDF2-SHA256, 100,000 iterations.">AES-256-GCM</span>
+        </div>
 
         <section id="panel-encrypt" class="tool-panel" role="tabpanel" aria-labelledby="tab-encrypt">
           <form id="encrypt-form" class="input-panel">
-            <div class="panel-heading"><span class="step">01 / INPUT</span><h2>Make it unreadable.</h2><p>Turn a message into text only your password can unlock.</p></div>
-            <div class="field"><div class="label-line"><label for="encrypt-text">Your message</label><span id="encrypt-count" class="field-meta">0 characters</span></div><textarea id="encrypt-text" rows="6" placeholder="Something worth keeping to yourself…" spellcheck="false" autocomplete="off"></textarea></div>
-            <div class="field"><label for="secret">Password</label><div class="secret-field"><input type="password" id="secret" placeholder="Use a long, hard-to-guess password" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="secret" aria-label="Show password" aria-pressed="false">Show</button></div><p class="field-help">Keep this password somewhere safe. There is no reset or recovery.</p></div>
-            <div class="form-actions"><button type="submit" id="encrypt-button" class="primary-button">Encrypt message <span aria-hidden="true">↗</span></button><button type="button" data-clear="encrypt" class="text-button">Clear</button></div>
+            <div class="panel-heading"><h2>Input</h2><span id="encrypt-count" class="field-meta">0 characters</span></div>
+            <div class="field text-field"><label for="encrypt-text">Clear text</label><textarea id="encrypt-text" rows="10" spellcheck="false" autocomplete="off"></textarea></div>
+            <div class="field"><label for="secret">Password</label><div class="secret-field"><input type="password" id="secret" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="secret" aria-label="Show password" aria-pressed="false">Show</button></div></div>
+            <div class="form-actions"><button type="submit" id="encrypt-button" class="primary-button"><span class="button-label">Encrypt</span><span class="button-icon" aria-hidden="true">→</span></button><button type="button" data-clear="encrypt" class="text-button">Clear</button></div>
             <p id="encrypt-status" class="status" role="status" aria-live="polite"></p>
           </form>
           <div class="output-panel">
-            <div class="output-heading"><span class="step">02 / RESULT</span><span class="format-tag">AES-256-GCM</span></div>
-            <div class="output-title"><h3>Encrypted text</h3><button type="button" class="copy-button" data-copy="encrypted-text" disabled>Copy <span aria-hidden="true">⧉</span></button></div>
-            <textarea id="encrypted-text" class="result-text" rows="9" readonly aria-label="Encrypted text" placeholder="Your encrypted message will appear here." spellcheck="false"></textarea>
-            <div class="output-footer"><span class="small-dot" aria-hidden="true"></span><p>Safe to store or share as ciphertext.<br>Keep the password separate.</p></div>
+            <div class="output-heading"><h3>Encrypted text</h3><button type="button" class="copy-button" data-copy="encrypted-text" disabled>Copy</button></div>
+            <textarea id="encrypted-text" class="result-text mono" rows="10" readonly aria-label="Encrypted text" placeholder="No result yet" spellcheck="false"></textarea>
           </div>
         </section>
 
         <section id="panel-decrypt" class="tool-panel" role="tabpanel" aria-labelledby="tab-decrypt" hidden>
           <form id="decrypt-form" class="input-panel">
-            <div class="panel-heading"><span class="step">01 / INPUT</span><h2>Bring it back.</h2><p>Unlock a message encrypted with Symmetro.</p></div>
-            <div class="field"><label for="decrypt-text">Encrypted text</label><textarea id="decrypt-text" class="mono" rows="6" placeholder="Paste the complete encrypted text…" spellcheck="false" autocomplete="off"></textarea></div>
-            <div class="field"><label for="decrypt-secret">Password</label><div class="secret-field"><input type="password" id="decrypt-secret" placeholder="The password used to encrypt it" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="decrypt-secret" aria-label="Show password" aria-pressed="false">Show</button></div><p class="field-help">Your password is checked only when you choose Decrypt.</p></div>
-            <div class="form-actions"><button type="submit" id="decrypt-button" class="primary-button">Decrypt message <span aria-hidden="true">↙</span></button><button type="button" data-clear="decrypt" class="text-button">Clear</button></div>
+            <div class="panel-heading"><h2>Input</h2></div>
+            <div class="field text-field"><label for="decrypt-text">Encrypted text</label><textarea id="decrypt-text" class="mono" rows="10" spellcheck="false" autocomplete="off"></textarea></div>
+            <div class="field"><label for="decrypt-secret" class="password-label">Password <span id="decrypt-validation" class="password-validation" role="status" aria-live="polite" data-state="idle"><span class="validation-icon" aria-hidden="true"></span><span class="sr-only"></span></span></label><div class="secret-field"><input type="password" id="decrypt-secret" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="decrypt-secret" aria-label="Show password" aria-pressed="false">Show</button></div></div>
+            <div class="form-actions"><button type="submit" id="decrypt-button" class="primary-button"><span class="button-label">Show Clear Text</span><span class="button-icon" aria-hidden="true">→</span></button><button type="button" data-clear="decrypt" class="text-button">Clear</button></div>
             <p id="decrypt-status" class="status" role="status" aria-live="polite"></p>
           </form>
           <div class="output-panel">
-            <div class="output-heading"><span class="step">02 / RESULT</span><span class="format-tag">Original message</span></div>
-            <div class="output-title"><h3>Decrypted text</h3><button type="button" class="copy-button" data-copy="decrypted-text" disabled>Copy <span aria-hidden="true">⧉</span></button></div>
-            <textarea id="decrypted-text" class="result-text" rows="9" readonly aria-label="Decrypted text" placeholder="Your original message will appear here." spellcheck="false"></textarea>
-            <div class="output-footer"><span class="small-dot" aria-hidden="true"></span><p>This result is readable again.<br>Be mindful of who can see your screen.</p></div>
+            <div class="output-heading"><h3>Decrypted text</h3><button type="button" class="copy-button" data-copy="decrypted-text" disabled>Copy</button></div>
+            <textarea id="decrypted-text" class="result-text" rows="10" readonly aria-label="Decrypted text" placeholder="No result yet" spellcheck="false"></textarea>
           </div>
         </section>
+        <details class="tool-help" id="encryption-help">
+          <summary>How Encrypt / Decrypt works <span aria-hidden="true">+</span></summary>
+          <div class="help-content">
+            <p class="help-intro">Protect a private note before saving it, or share encrypted text with someone who knows the password. Keep that password separately; Symmetro cannot recover it.</p>
+            <div class="help-grid">
+              <section><h3>Clear text and encrypted text</h3><p>Clear text is the readable, unencrypted message. Encryption conceals it; decryption recovers it with the password. In Decrypt, Symmetro checks the password as you type. The recovered message stays hidden until you choose Show Clear Text, so you can decide when to display potentially sensitive content.</p></section>
+              <section><h3>AES: the same key both ways</h3><p>AES, the Advanced Encryption Standard, locks and unlocks text with the same secret key. This is called symmetric encryption. Symmetro calculates a 256-bit key from your password, so the same password can unlock the result later. Anyone who has both the password and encrypted text can read the message.</p></section>
+              <section><h3>SHA-256: a fingerprint, not encryption</h3><p>A hash turns input into a fixed-size fingerprint. SHA-256 produces a 256-bit fingerprint and is designed to work one way: there is no decoding step to recover the input. Different inputs can share a fingerprint, so it is not a unique identifier. Someone can still guess a weak input and check whether its fingerprint matches.</p></section>
+              <section><h3>PBKDF2: turning a password into a key</h3><p>PBKDF2 is a password-to-key calculation. It uses HMAC, a hash calculation with a key, built here from SHA-256. Repeating the work 100,000 times makes each password guess more expensive; it does not encrypt the message 100,000 times. This count is fixed to preserve compatibility with existing messages. An easily guessed password remains vulnerable.</p></section>
+              <section><h3>GCM: checking for changes</h3><p>GCM is the way Symmetro applies AES while also creating a tamper-check value, called a tag. Decryption checks that tag before accepting the message. A wrong password or altered encrypted result makes the check fail. It does not identify the sender: anyone with the password can create a valid message.</p></section>
+              <section><h3>Salt: a different key for each message</h3><p>A salt is an extra value mixed into the password-to-key calculation. Symmetro generates a fresh random 16-byte salt for every encryption, so reusing a password does not reuse the same calculation. This limits reuse of prepared password guesses across messages. The salt is public and travels inside the encrypted result.</p></section>
+              <section><h3>IV: a fresh starting value</h3><p>An initialization vector, or IV, gives the encryption operation its starting value. Symmetro generates a fresh random 12-byte IV for each message; the same key must not reuse an IV. It is public and included in the result. Together with the random salt, it makes repeated encryptions of the same message look different.</p></section>
+              <section><h3>Base64: packaging you can copy</h3><p>Base64 represents bytes as copyable text using letters, digits, symbols, and optional padding. It adds no secrecy. Symmetro packages the salt, IV, encrypted message, and tag this way automatically; these are not settings you need to choose. Save the complete result and keep the password separately. Anyone with the result can try password guesses offline.</p></section>
+            </div>
+            <div class="help-references"><span>References</span><a href="https://developer.mozilla.org/en-US/docs/Web/API/AesGcmParams" target="_blank" rel="noopener noreferrer">AES-GCM ↗</a><a href="https://developer.mozilla.org/en-US/docs/Web/API/Pbkdf2Params" target="_blank" rel="noopener noreferrer">PBKDF2 ↗</a></div>
+          </div>
+        </details>
+      </section>
 
-        <section id="panel-derive" class="tool-panel" role="tabpanel" aria-labelledby="tab-derive" hidden>
+      <section id="panel-derive" class="workspace" role="tabpanel" aria-labelledby="tab-derive" hidden>
+        <div class="derive-heading"><div><h2>Derive</h2><p>Reusing the same secret, number, and length returns the same password.</p></div><span class="format-tag" title="Argon2id (64 MiB, 3 iterations, 4 lanes) + HKDF-SHA256.">Argon2id + HKDF</span></div>
+        <div class="tool-panel derive-panel">
           <form id="derive-form" class="input-panel">
-            <div class="panel-heading"><span class="step">01 / INPUT</span><h2>One secret. Many passwords.</h2><p>The same secret, number, and recipe make the same password.</p></div>
-            <div class="field"><label for="derive-secret">Secret text</label><div class="secret-field"><input type="password" id="derive-secret" placeholder="A long secret only you know" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="derive-secret" aria-label="Show secret text" aria-pressed="false">Show</button></div><p class="field-help">Single-line text. Every space, letter, and character matters.</p></div>
-            <div class="recipe-fields"><div class="field"><label for="derive-index">Password number</label><div class="number-field"><span aria-hidden="true">#</span><input type="text" inputmode="numeric" id="derive-index" value="1" autocomplete="off" spellcheck="false" aria-describedby="index-help"></div></div><div class="field recipe-field"><label for="derive-version">Recipe</label><select id="derive-version" aria-describedby="recipe-help"><option value="1">Version 1</option></select></div></div>
-            <p id="index-help" class="field-help">1, 2, 3… You remember which number belongs where.</p>
-            <div class="caution"><span aria-hidden="true">!</span><p>A generated password is only as safe as your secret. A short or familiar phrase can still be guessed.</p></div>
-            <div class="form-actions"><button type="submit" id="derive-button" class="primary-button">Generate password <span aria-hidden="true">↗</span></button><button type="button" data-clear="derive" class="text-button">Clear</button></div>
+            <div class="field"><label for="derive-secret">Base secret</label><div class="secret-field"><input type="password" id="derive-secret" autocomplete="new-password" spellcheck="false" autocapitalize="none" aria-describedby="secret-help"><button type="button" data-reveal="derive-secret" aria-label="Show secret text" aria-pressed="false">Show</button></div><p id="secret-help" class="field-help">Single line. Spaces and case matter.</p></div>
+            <div class="recipe-fields">
+              <div class="field"><label for="derive-index">Password number</label><div class="number-field"><span aria-hidden="true">#</span><input type="text" inputmode="numeric" id="derive-index" value="1" autocomplete="off" spellcheck="false" aria-describedby="index-help"></div><p id="index-help" class="field-help">Keep each account's number and length.</p></div>
+              <div class="field"><label for="derive-version">Recipe</label><select id="derive-version" disabled title="v1 is the only available recipe"><option value="1">v1</option></select></div>
+            </div>
+            <fieldset class="length-control" aria-describedby="length-help">
+              <legend>Length</legend>
+              <div class="length-options">
+                <label><input class="sr-only" type="radio" name="derive-length" value="16" aria-label="16 characters"><span>16</span></label>
+                <label><input class="sr-only" type="radio" name="derive-length" value="24" aria-label="24 characters"><span>24</span></label>
+                <label><input class="sr-only" type="radio" name="derive-length" value="43" aria-label="Max (43 characters)" checked><span>Max (43)</span></label>
+              </div>
+              <p id="length-help" class="field-help">Shorter lengths use the first characters of the same generated password. Keep the same length when recreating it.</p>
+            </fieldset>
+            <div class="form-actions"><button type="submit" id="derive-button" class="primary-button"><span class="button-label">Generate</span><span class="button-icon" aria-hidden="true">→</span></button><button type="button" data-clear="derive" class="text-button">Clear</button></div>
             <p id="derive-status" class="status" role="status" aria-live="polite"></p>
           </form>
           <div class="output-panel derive-output">
-            <div class="output-heading"><span class="step">02 / RESULT</span><span class="format-tag">43 characters</span></div>
-            <div class="output-title"><h3 id="derived-label">Password #1</h3><button type="button" class="copy-button" data-copy="derived-password" disabled>Copy <span aria-hidden="true">⧉</span></button></div>
-            <div class="derived-result"><span class="result-caption">YOUR REPRODUCIBLE PASSWORD</span><input id="derived-password" type="password" readonly autocomplete="new-password" aria-labelledby="derived-label" placeholder="Nothing generated yet"><button type="button" class="result-reveal" data-reveal="derived-password" aria-label="Show generated password" aria-pressed="false" disabled>Show password</button></div>
-            <button type="button" id="next-password" class="next-button" disabled>Generate next password <span aria-hidden="true">→</span></button>
-            <div class="output-footer"><span class="small-dot" aria-hidden="true"></span><p id="recipe-help">Keep the exact secret, number, and recipe version.<br>No list of your passwords is saved.</p></div>
+            <div class="output-heading"><h3 id="derived-label">Password #1</h3><button type="button" class="copy-button" data-copy="derived-password" disabled>Copy</button></div>
+            <div class="derived-result"><input id="derived-password" type="password" readonly autocomplete="new-password" aria-labelledby="derived-label" placeholder="No result yet"><div class="result-controls"><span class="field-meta" id="derived-length">43 characters · base64url</span><button type="button" class="result-reveal" data-reveal="derived-password" aria-label="Show generated password" aria-pressed="false" disabled>Show</button></div></div>
+            <button type="button" id="next-password" class="next-button" disabled>Generate next <span aria-hidden="true">→</span></button>
+            <p id="recipe-help" class="field-help">Keep the secret, number, and length to recreate this password.</p>
           </div>
-        </section>
-        <div class="workspace-footnote"><span aria-hidden="true">↔</span> Switching tools clears the fields. Copy anything you need first.</div>
+        </div>
+        <details class="tool-help" id="derivation-help">
+          <summary>How Derive works <span aria-hidden="true">+</span></summary>
+          <div class="help-content">
+            <p class="help-intro">Recreate passwords from one strong base passphrase. Use a different password number for each account. Changing the length alone does not create an independent password.</p>
+            <div class="help-grid">
+              <section><h3>Recreate a password when you need it</h3><p>Keep each account's number and selected length. Re-enter the exact secret, including spaces and case, to recreate its password. Use a new number when changing a password, and update it at the account itself. A typo produces a different password without a warning. Symmetro cannot recover a forgotten secret.</p></section>
+              <section><h3>Argon2id: making guesses cost more</h3><p>Argon2id turns your base secret into an internal secret value, called a root key, from which numbered passwords are calculated. It deliberately requires memory as well as computation, making large numbers of guesses more expensive. This is what memory-hard means. Use a long, unpredictable secret: extra work cannot make an easily guessed secret safe.</p></section>
+              <section><h3>Why 64 MiB, three passes, four lanes?</h3><p>64 MiB (mebibytes, about 67 megabytes) is the working-memory budget, with three passes over it. Four lanes divide the work within that budget. These settings balance the cost of guessing against memory use and waiting time on your device. They match a profile recommended in the Argon2 specification. Browser overhead adds to memory use.</p></section>
+              <section><h3>SHA-256: a one-way fingerprint</h3><p>A hash produces a fixed-size fingerprint of its input. SHA-256 produces 256 bits. It is not encryption and cannot be decoded to recover the input; different inputs can also have the same fingerprint. Guessing remains possible: someone can calculate fingerprints of likely inputs and compare them. HMAC adds a secret key to a hash calculation.</p></section>
+              <section><h3>HKDF: choosing the numbered output</h3><p>HKDF turns the internal root key from Argon2id into a password for each number. It uses HMAC, a hash calculation with a key built from SHA-256, and mixes in the number and a fixed label for Symmetro. Changing the number changes the output. Argon2id makes guessing expensive; HKDF produces the separate numbered passwords.</p></section>
+              <section><h3>Fixed salts: the recovery tradeoff</h3><p>A salt is an extra input to a calculation. Derive uses fixed public salts so you need no saved random value to recreate passwords. Identical inputs give identical passwords across users, allowing guessing work to be reused. A disclosed password permits offline secret guesses. It does not directly reveal other passwords, but finding the secret exposes every number.</p></section>
+              <section><h3>Full result and shorter lengths</h3><p>Recipe v1 produces 32 bytes, written as 43 base64url characters: letters, digits, hyphen, and underscore, without padding. Max keeps the full result; 16 and 24 keep its first characters. Length changes the final credential without changing the recipe. 16 is this tool's minimum preset. Sites may require other lengths or characters.</p></section>
+              <section><h3>Recipe 1: keeping passwords reproducible</h3><p>A recipe identifies the exact calculation and character format. Recipe 1 is fixed so the same inputs keep producing the same password. Only version 1 is currently available. Its number is a compatibility identifier, separate from the app release and encryption format, not an adjustable strength setting. Keep it with your account-to-number notes.</p></section>
+            </div>
+            <div class="help-references"><span>References</span><a href="https://www.rfc-editor.org/rfc/rfc9106.html#section-4" target="_blank" rel="noopener noreferrer">Argon2id parameters ↗</a><a href="https://www.rfc-editor.org/rfc/rfc5869.html#section-3.2" target="_blank" rel="noopener noreferrer">HKDF ↗</a></div>
+          </div>
+        </details>
       </section>
 
-      <section class="principles" aria-label="How Symmetro works"><article><span class="principle-number">01</span><div><h3>Private by design</h3><p>Your inputs stay in this page. No analytics, accounts, or remote processing.</p></div></article><article><span class="principle-number">02</span><div><h3>Take it offline</h3><p>One HTML file with everything inside. Download a release and disconnect.</p></div></article><article><span class="principle-number">03</span><div><h3>Verify, then trust</h3><p>Open source and inspectable. Your browser, device, and secret still matter.</p></div></article></section>
-      <details class="technical-notes"><summary>A closer look at what happens here <span aria-hidden="true">+</span></summary><div class="notes-grid"><div><h3>Encrypt &amp; decrypt</h3><p>AES-256-GCM with a fresh random salt and IV for each message. Passwords are derived with PBKDF2-SHA256 at 100,000 iterations. Existing Symmetro encrypted messages remain compatible.</p></div><div><h3>Numbered passwords</h3><p>Recipe v1 uses Argon2id and HKDF-SHA256 to derive a 43-character base64url password. The recipe uses a fixed public salt for reproducibility, so a strong, unique source secret is essential. Identical inputs give identical passwords for everyone. A known generated password lets an attacker test secret guesses offline; finding the secret exposes all its password numbers.</p></div><div><h3>A few important limits</h3><p>There is no password recovery. Clearing removes values from the interface but cannot guarantee erasure from browser memory or clipboard history. Browser extensions, a compromised device, or a modified copy of this file can expose your secrets.</p></div></div></details>
+      <div class="workspace-footnote">Switching tools or modes clears inputs and results.</div>
+      <details class="storage-notes">
+        <summary>Storage &amp; clearing <span aria-hidden="true">+</span></summary>
+        <div class="storage-content">
+          <p>Inputs and results are not saved. Clearing removes them from the interface, but cannot erase clipboard history or guarantee erasure from browser memory. Browser extensions and other software on your device remain outside this tool's control.</p>
+        </div>
+      </details>
     </main>
-    <footer><p>A small tool. A little more privacy.</p><div><a href="https://github.com/colthreepv/symmetro" target="_blank" rel="noopener noreferrer">Source code ↗</a><a href="https://github.com/colthreepv/symmetro/releases" target="_blank" rel="noopener noreferrer">Download a release ↗</a></div></footer>
+    <footer><div><a href="https://github.com/colthreepv/symmetro" target="_blank" rel="noopener noreferrer">Source ↗</a><a href="https://github.com/colthreepv/symmetro/releases" target="_blank" rel="noopener noreferrer">Download HTML ↗</a></div></footer>
   </div>
   <script type="module" src="main.ts"></script>
 </body>

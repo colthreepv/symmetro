@@ -4,12 +4,13 @@ import { DERIVATION_VERSION, MAX_PASSWORD_INDEX, nextPasswordIndex, parsePasswor
 import DeriveWorker from './derive.worker?worker&inline'
 
 type Mode = 'encrypt' | 'decrypt' | 'derive'
+type TextMode = Exclude<Mode, 'derive'>
 type ValueElement = HTMLInputElement | HTMLTextAreaElement
 const modes: Mode[] = ['encrypt', 'decrypt', 'derive']
 const fields: Record<Mode, { input: string, secret: string, output: string, button: string, label: string }> = {
-  encrypt: { input: 'encrypt-text', secret: 'secret', output: 'encrypted-text', button: 'encrypt-button', label: 'Encrypt message' },
-  decrypt: { input: 'decrypt-text', secret: 'decrypt-secret', output: 'decrypted-text', button: 'decrypt-button', label: 'Decrypt message' },
-  derive: { input: 'derive-index', secret: 'derive-secret', output: 'derived-password', button: 'derive-button', label: 'Generate password' },
+  encrypt: { input: 'encrypt-text', secret: 'secret', output: 'encrypted-text', button: 'encrypt-button', label: 'Encrypt' },
+  decrypt: { input: 'decrypt-text', secret: 'decrypt-secret', output: 'decrypted-text', button: 'decrypt-button', label: 'Show Clear Text' },
+  derive: { input: 'derive-index', secret: 'derive-secret', output: 'derived-password', button: 'derive-button', label: 'Generate' },
 }
 function element<T extends HTMLElement>(id: string): T {
   const value = document.getElementById(id)
@@ -19,8 +20,14 @@ function element<T extends HTMLElement>(id: string): T {
 }
 const valueElement = (id: string) => element<ValueElement>(id)
 let activeMode: Mode = 'encrypt'
+let lastTextMode: TextMode = 'encrypt'
 let revision = 0
 let busy = false
+let derivedPassword = ''
+let validationTimer: ReturnType<typeof setTimeout> | undefined
+let validationFlight: Promise<void> | undefined
+let queuedValidation: number | undefined
+const composing = new Set<EventTarget>()
 let currentWorker: { worker: Worker, reject: (reason: Error) => void } | undefined
 const supported = Boolean(globalThis.crypto?.subtle)
 
@@ -28,12 +35,24 @@ function setStatus(mode: Mode, message = '', error = false): void {
   const target = element(`${mode}-status`)
   target.textContent = message
   target.dataset.error = String(error)
+  if (error)
+    setButtonState(mode, 'error')
+}
+function setButtonState(mode: Mode, state: 'idle' | 'pending' | 'success' | 'error'): void {
+  const button = element<HTMLButtonElement>(fields[mode].button)
+  button.dataset.state = state
+  button.querySelector('.button-label')!.textContent = fields[mode].label
+  const icon = button.querySelector<HTMLElement>('.button-icon')!
+  icon.textContent = state === 'pending' ? '' : state === 'success' ? '✓' : state === 'error' ? '!' : '→'
+  icon.classList.toggle('spinner', state === 'pending')
+  button.title = state === 'pending' ? 'Working…' : state === 'success' ? 'Completed' : state === 'error' ? 'Check the error below' : fields[mode].label
 }
 function setBusy(mode: Mode, pending: boolean): void {
   busy = pending
   const button = element<HTMLButtonElement>(fields[mode].button)
   button.setAttribute('aria-busy', String(pending))
-  button.firstChild!.textContent = pending ? 'Working… ' : `${fields[mode].label} `
+  if (pending)
+    setButtonState(mode, 'pending')
   updateButtons()
 }
 function updateButtons(): void {
@@ -53,7 +72,7 @@ function hideSecret(id: string): void {
   const input = element<HTMLInputElement>(id)
   input.type = 'password'
   const toggle = document.querySelector<HTMLButtonElement>(`[data-reveal="${id}"]`)!
-  toggle.textContent = id === 'derived-password' ? 'Show password' : 'Show'
+  toggle.textContent = 'Show'
   toggle.setAttribute('aria-pressed', 'false')
   toggle.setAttribute('aria-label', id === 'derive-secret' ? 'Show secret text' : id === 'derived-password' ? 'Show generated password' : 'Show password')
 }
@@ -62,30 +81,50 @@ function clearOutput(mode: Mode): void {
   output.value = ''
   delete output.dataset.ready
   const copy = document.querySelector<HTMLButtonElement>(`[data-copy="${fields[mode].output}"]`)!
-  copy.textContent = 'Copy ⧉'
-  if (mode === 'derive')
+  copy.textContent = 'Copy'
+  if (mode === 'derive') {
+    derivedPassword = ''
     hideSecret('derived-password')
+  }
+}
+function updateDerivedDisplay(): void {
+  const selected = document.querySelector<HTMLInputElement>('input[name="derive-length"]:checked')!
+  const length = Number(selected.value)
+  element('derived-length').textContent = `${length} characters · base64url`
+  valueElement('derived-password').value = derivedPassword.slice(0, length)
+  document.querySelector<HTMLButtonElement>('[data-copy="derived-password"]')!.textContent = 'Copy'
 }
 function invalidate(): void {
   revision += 1
+  clearTimeout(validationTimer)
+  validationTimer = undefined
+  queuedValidation = undefined
+  setValidation('idle')
   if (currentWorker) {
     const job = currentWorker
     currentWorker = undefined
     job.worker.terminate()
     job.reject(new DOMException('Operation cancelled', 'AbortError'))
   }
-  for (const mode of modes)
+  for (const mode of modes) {
     setBusy(mode, false)
+    setButtonState(mode, 'idle')
+  }
 }
 function resetMode(mode: Mode): void {
+  if (mode === 'decrypt')
+    composing.clear()
   const config = fields[mode]
   valueElement(config.input).value = mode === 'derive' ? '1' : ''
   valueElement(config.secret).value = ''
   hideSecret(config.secret)
   clearOutput(mode)
   setStatus(mode)
-  if (mode === 'derive')
+  if (mode === 'derive') {
     element('derived-label').textContent = 'Password #1'
+    document.querySelector<HTMLInputElement>('input[name="derive-length"][value="43"]')!.checked = true
+    updateDerivedDisplay()
+  }
 }
 function clearAll(): void {
   invalidate()
@@ -93,21 +132,26 @@ function clearAll(): void {
   element('encrypt-count').textContent = '0 characters'
   updateButtons()
 }
-function selectMode(mode: Mode, focus = false, updateHash = true): void {
+function selectMode(mode: Mode, updateHash = true): void {
   if (activeMode !== mode)
     clearAll()
   activeMode = mode
+  if (mode !== 'derive')
+    lastTextMode = mode
+  const textSelected = mode !== 'derive'
+  element('panel-text').hidden = !textSelected
+  const textTab = element<HTMLButtonElement>('tab-text')
+  textTab.setAttribute('aria-selected', String(textSelected))
+  textTab.tabIndex = textSelected ? 0 : -1
   for (const item of modes) {
-    const selected = item === mode
-    element(`panel-${item}`).hidden = !selected
+    element(`panel-${item}`).hidden = item !== mode
+    const selected = item === 'derive' ? mode === 'derive' : item === lastTextMode
     const tab = element<HTMLButtonElement>(`tab-${item}`)
     tab.setAttribute('aria-selected', String(selected))
     tab.tabIndex = selected ? 0 : -1
   }
   if (updateHash && window.location.hash !== `#${mode}`)
     window.location.hash = mode
-  if (focus)
-    element(`tab-${mode}`).focus()
   updateButtons()
 }
 function readHash(): Mode {
@@ -129,6 +173,61 @@ function decodePayload(text: string): Uint8Array {
   if (binary.length < 44)
     throw new Error('invalid payload')
   return Uint8Array.from(binary, character => character.charCodeAt(0))
+}
+function setValidation(state: 'idle' | 'pending' | 'valid' | 'invalid'): void {
+  const target = element('decrypt-validation')
+  const message = state === 'valid' ? 'Password matches' : state === 'invalid' ? 'Password does not match or encrypted text is invalid' : state === 'pending' ? 'Checking password…' : ''
+  target.dataset.state = state
+  target.title = message
+  const icon = target.querySelector<HTMLElement>('.validation-icon')!
+  icon.textContent = state === 'valid' ? '✓' : state === 'invalid' ? '×' : ''
+  icon.classList.toggle('spinner', state === 'pending')
+  target.querySelector('.sr-only')!.textContent = message
+  const secret = element('decrypt-secret')
+  if (state === 'valid' || state === 'invalid')
+    secret.setAttribute('aria-invalid', String(state === 'invalid'))
+  else
+    secret.removeAttribute('aria-invalid')
+}
+function scheduleValidation(): void {
+  if (!supported || activeMode !== 'decrypt' || composing.size || !valueElement('decrypt-text').value || !valueElement('decrypt-secret').value)
+    return
+  const token = revision
+  validationTimer = setTimeout(() => {
+    validationTimer = undefined
+    void checkPassword(token)
+  }, 275)
+}
+async function checkPassword(token: number): Promise<void> {
+  if (token !== revision || activeMode !== 'decrypt' || busy || composing.size)
+    return
+  setValidation('pending')
+  if (validationFlight) {
+    queuedValidation = token
+    return
+  }
+  const text = valueElement('decrypt-text').value
+  const secret = valueElement('decrypt-secret').value
+  if (!text || !secret)
+    return
+  // Only one authenticated check runs at a time; edits retain only the latest request.
+  const flight = (async () => {
+    let valid = false
+    try {
+      await decryptText(decodePayload(text), secret)
+      valid = true
+    }
+    catch { /* A wrong password and an invalid payload have the same feedback. */ }
+    if (token === revision && activeMode === 'decrypt' && !busy)
+      setValidation(valid ? 'valid' : 'invalid')
+  })()
+  validationFlight = flight
+  await flight
+  validationFlight = undefined
+  const queued = queuedValidation
+  queuedValidation = undefined
+  if (queued !== undefined)
+    void checkPassword(queued)
 }
 function deriveInWorker(secret: string, index: string, version: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -191,7 +290,12 @@ async function run(mode: Mode): Promise<void> {
         throw new Error('Unsupported recipe version.')
     }
     setBusy(mode, true)
-    setStatus(mode, mode === 'derive' ? 'Deriving locally. This may take a moment…' : 'Working locally…')
+    setStatus(mode, mode === 'derive' ? 'Deriving…' : mode === 'encrypt' ? 'Encrypting…' : 'Decrypting…')
+    if (mode === 'decrypt' && validationFlight) {
+      await validationFlight
+      if (token !== revision || activeMode !== mode)
+        return
+    }
     let result: string
     if (mode === 'encrypt')
       result = encodePayload(await encryptText(input, secret))
@@ -204,14 +308,22 @@ async function run(mode: Mode): Promise<void> {
     const output = valueElement(config.output)
     output.value = result
     output.dataset.ready = 'true'
-    if (mode === 'derive')
+    if (mode === 'derive') {
+      derivedPassword = result
+      updateDerivedDisplay()
       element('derived-label').textContent = `Password #${input}`
-    setStatus(mode, mode === 'encrypt' ? 'Message encrypted. Keep the password separate.' : mode === 'decrypt' ? 'Message decrypted.' : `Password #${input} generated with recipe v1.`)
+    }
+    if (mode === 'decrypt')
+      setValidation('valid')
+    setButtonState(mode, 'success')
+    setStatus(mode, mode === 'encrypt' ? 'Encrypted.' : mode === 'decrypt' ? 'Decrypted.' : 'Generated.')
   }
   catch (error) {
     if (token !== revision || activeMode !== mode)
       return
     const message = mode === 'decrypt' ? 'Could not decrypt. Check the password and the complete encrypted text.' : error instanceof Error ? error.message : 'Something went wrong. Please try again.'
+    if (mode === 'decrypt')
+      setValidation('invalid')
     setStatus(mode, message, true)
   }
   finally {
@@ -234,7 +346,7 @@ async function copyResult(button: HTMLButtonElement): Promise<void> {
     }
   }
   catch { /* file:// or clipboard permission may need the selection fallback below */ }
-  if (token !== revision || mode !== activeMode)
+  if (token !== revision || mode !== activeMode || text !== output.value)
     return
   if (!copied) {
     // Use a temporary textarea so password-type fields can also be copied.
@@ -253,20 +365,20 @@ async function copyResult(button: HTMLButtonElement): Promise<void> {
     button.focus()
   }
   if (copied) {
-    button.textContent = 'Copied ✓'
-    setStatus(mode, 'Copied. Your clipboard or clipboard history may keep a copy.')
+    button.textContent = 'Copied.'
+    setStatus(mode, 'Copied.')
   }
   else {
     if (output instanceof HTMLInputElement && output.type === 'password') {
       output.type = 'text'
       const reveal = document.querySelector<HTMLButtonElement>(`[data-reveal="${output.id}"]`)!
-      reveal.textContent = 'Hide password'
+      reveal.textContent = 'Hide'
       reveal.setAttribute('aria-pressed', 'true')
       reveal.setAttribute('aria-label', 'Hide generated password')
     }
     output.focus()
     output.select()
-    setStatus(mode, 'Automatic copy is unavailable. The result is selected; use your device’s Copy command.')
+    setStatus(mode, 'Automatic copy is unavailable. The result is selected; use your device’s Copy command.', true)
   }
 }
 
@@ -275,7 +387,7 @@ for (const mode of modes) {
     event.preventDefault()
     void run(mode)
   })
-  element(`panel-${mode}`).querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input:not([readonly]), textarea:not([readonly]), select').forEach((input) => {
+  element(`panel-${mode}`).querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input:not([readonly]):not([name="derive-length"]), textarea:not([readonly]), select').forEach((input) => {
     input.addEventListener('input', () => {
       invalidate()
       clearOutput(mode)
@@ -287,24 +399,81 @@ for (const mode of modes) {
       if (mode === 'derive')
         element('derived-label').textContent = `Password #${valueElement('derive-index').value || '—'}`
       updateButtons()
+      if (mode === 'decrypt')
+        scheduleValidation()
     })
-  })
-  element(`tab-${mode}`).addEventListener('click', () => selectMode(mode))
-  element(`tab-${mode}`).addEventListener('keydown', (event) => {
-    const index = modes.indexOf(mode)
-    const target = event.key === 'ArrowRight' ? modes[(index + 1) % modes.length] : event.key === 'ArrowLeft' ? modes[(index + modes.length - 1) % modes.length] : event.key === 'Home' ? modes[0] : event.key === 'End' ? modes[modes.length - 1] : undefined
-    if (target) {
-      event.preventDefault()
-      selectMode(target, true)
+    if (mode === 'decrypt') {
+      input.addEventListener('compositionstart', () => {
+        composing.add(input)
+        invalidate()
+        clearOutput(mode)
+        setStatus(mode)
+        updateButtons()
+      })
+      input.addEventListener('compositionend', () => {
+        composing.delete(input)
+        invalidate()
+        scheduleValidation()
+      })
     }
   })
 }
+document.querySelectorAll<HTMLInputElement>('input[name="derive-length"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    updateDerivedDisplay()
+    if (derivedPassword)
+      setStatus('derive')
+  })
+})
+// Each list has its own roving tab stop and automatic activation.
+for (const ids of [['tab-text', 'tab-derive'], ['tab-encrypt', 'tab-decrypt']]) {
+  const activate = (id: string, focus = false) => {
+    const mode = id === 'tab-text' ? lastTextMode : id.slice(4) as Mode
+    selectMode(mode)
+    if (focus)
+      element(id).focus()
+  }
+  ids.forEach((id, index) => {
+    const tab = element<HTMLButtonElement>(id)
+    tab.addEventListener('click', () => activate(id))
+    tab.addEventListener('keydown', (event) => {
+      const target = event.key === 'ArrowRight' ? ids[(index + 1) % ids.length] : event.key === 'ArrowLeft' ? ids[(index + ids.length - 1) % ids.length] : event.key === 'Home' ? ids[0] : event.key === 'End' ? ids[ids.length - 1] : undefined
+      if (target) {
+        event.preventDefault()
+        activate(target, true)
+      }
+    })
+  })
+}
+
+function setTheme(theme: 'dark' | 'light'): void {
+  document.documentElement.dataset.theme = theme
+  const toggle = element<HTMLButtonElement>('theme-toggle')
+  toggle.textContent = theme === 'dark' ? 'Light mode' : 'Dark mode'
+  toggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode')
+}
+setTheme('dark')
+element('theme-toggle').addEventListener('click', () => {
+  setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark')
+})
+const readonlyOutputs = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input[readonly], textarea[readonly]')
+readonlyOutputs.forEach((output) => {
+  output.addEventListener('pointerdown', () => {
+    output.dataset.pointerFocus = 'true'
+  })
+  output.addEventListener('blur', () => {
+    delete output.dataset.pointerFocus
+  })
+})
+document.addEventListener('keydown', () => {
+  readonlyOutputs.forEach(output => delete output.dataset.pointerFocus)
+}, true)
 document.querySelectorAll<HTMLButtonElement>('[data-reveal]').forEach((button) => {
   button.addEventListener('click', () => {
     const input = element<HTMLInputElement>(button.dataset.reveal!)
     const show = input.type === 'password'
     input.type = show ? 'text' : 'password'
-    button.textContent = input.id === 'derived-password' ? `${show ? 'Hide' : 'Show'} password` : show ? 'Hide' : 'Show'
+    button.textContent = show ? 'Hide' : 'Show'
     button.setAttribute('aria-pressed', String(show))
     button.setAttribute('aria-label', `${show ? 'Hide' : 'Show'} ${input.id === 'derive-secret' ? 'secret text' : input.id === 'derived-password' ? 'generated password' : 'password'}`)
   })
@@ -319,13 +488,8 @@ document.querySelectorAll<HTMLButtonElement>('[data-clear]').forEach(button => b
   element('encrypt-count').textContent = '0 characters'
   updateButtons()
   valueElement(mode === 'derive' ? 'derive-secret' : fields[mode].input).focus()
-  setStatus(mode, 'Fields cleared.')
+  setStatus(mode, 'Cleared.')
 }))
-element('clear-session').addEventListener('click', () => {
-  clearAll()
-  valueElement(activeMode === 'derive' ? 'derive-secret' : fields[activeMode].input).focus()
-  setStatus(activeMode, 'All fields cleared. Clipboard contents are unchanged.')
-})
 element('next-password').addEventListener('click', () => {
   if (busy)
     return
@@ -355,7 +519,7 @@ element('derive-secret').addEventListener('drop', (event) => {
     setStatus('derive', 'Use single-line secret text. Text containing line breaks was not inserted.', true)
   }
 })
-window.addEventListener('hashchange', () => selectMode(readHash(), false, false))
+window.addEventListener('hashchange', () => selectMode(readHash(), false))
 window.addEventListener('pagehide', clearAll)
 window.addEventListener('pageshow', (event) => {
   if (event.persisted)
@@ -368,4 +532,4 @@ if (!supported) {
   warning.textContent = 'This browser does not provide Web Crypto. Open the downloaded file in a current browser to use these tools.'
 }
 clearAll()
-selectMode(readHash(), false, false)
+selectMode(readHash(), false)
