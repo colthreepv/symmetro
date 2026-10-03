@@ -516,7 +516,7 @@ test('live password validation authenticates edits without revealing plaintext',
   await page.locator('#decrypt-secret').fill(fixture.password)
   await expect(validation).toHaveAttribute('data-state', 'valid')
   await expect(validation.locator('.validation-icon')).toHaveText('✓')
-  await expect(validation.locator('.sr-only')).toHaveText('Password matches')
+  await expect(validation.locator('.sr-only')).toHaveText('Input 1: Password matches')
   await expect(page.locator('#decrypt-secret')).toHaveAttribute('aria-invalid', 'false')
   await expect(page.locator('#decrypted-text')).toHaveValue('')
   await expect(page.locator('[data-copy="decrypted-text"]')).toBeDisabled()
