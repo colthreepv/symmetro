@@ -284,7 +284,7 @@ for (const mode of ['encrypt', 'decrypt', 'derive']) {
     const secret = mode === 'derive' ? vectors[0].secret : fixture.password
     await page.locator(`#${ids[0]}`).fill(input)
     await page.locator(`#${ids[1]}`).fill(secret)
-    await expect(page.locator(`#${mode}-button`)).toHaveAccessibleName(mode === 'derive' ? 'Generate' : mode === 'encrypt' ? 'Encrypt' : 'Decrypt')
+    await expect(page.locator(`#${mode}-button`)).toHaveAccessibleName(mode === 'derive' ? 'Generate' : mode === 'encrypt' ? 'Encrypt' : 'Show Clear Text')
     await page.locator(`#${mode}-button`).click()
     await expect(page.locator(`#${ids[2]}`)).not.toHaveValue('', { timeout: 20000 })
     const result = await page.locator(`#${ids[2]}`).inputValue()
@@ -524,6 +524,27 @@ test('readonly output has no pointer outline and retains a keyboard focus indica
   expect(Number.parseFloat(keyboard.width)).toBeGreaterThan(0)
 })
 
+test('tool headers stay aligned and recipe v1 is fixed', async ({ page, context }) => {
+  await context.setOffline(true)
+  for (const width of [1440, 1188, 900, 601, 390, 320]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await page.goto(`${artifactUrl.href}#encrypt`)
+    await expect(page.getByLabel('Clear text', { exact: true })).toBeVisible()
+    const toolbar = await page.locator('.toolbar').boundingBox()
+    const version = await page.locator('#version-text').boundingBox()
+    const mark = await page.locator('.brand-mark').boundingBox()
+    expect(Math.abs(version.y + version.height - (mark.y + mark.height - 2))).toBeLessThan(1)
+    await tab(page, 'Decrypt').click()
+    await expect(page.locator('#decrypt-button')).toHaveAccessibleName('Show Clear Text')
+    await tab(page, 'Derive').click()
+    const deriveHeading = await page.locator('.derive-heading').boundingBox()
+    expect(Math.abs(deriveHeading.height - toolbar.height)).toBeLessThan(1)
+    expect(deriveHeading.y + deriveHeading.height).toBeCloseTo(toolbar.y + toolbar.height, 0)
+    await expect(page.locator('#derive-version')).toBeDisabled()
+    await expect(page.locator('#derive-version')).toHaveValue('1')
+  }
+})
+
 test('tool explanations are keyboard accessible and preserve inputs and results offline', async ({ page, context }) => {
   const requests = []
   context.on('request', request => requests.push(request.url()))
@@ -539,7 +560,7 @@ test('tool explanations are keyboard accessible and preserve inputs and results 
   await encryptionHelp.locator('summary').focus()
   await page.keyboard.press('Enter')
   await expect(encryptionHelp).toHaveAttribute('open', '')
-  await expect(encryptionHelp.getByRole('heading', { name: 'Why PBKDF2?' })).toBeVisible()
+  await expect(encryptionHelp.getByRole('heading', { name: 'PBKDF2: turning a password into a key' })).toBeVisible()
   await expect(page.locator('#decrypt-secret')).toHaveValue(fixture.password)
   await expect(page.locator('#decrypted-text')).toHaveValue(fixture.text)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
@@ -553,7 +574,7 @@ test('tool explanations are keyboard accessible and preserve inputs and results 
   await page.locator('#derive-secret').fill('synthetic help review secret')
   await page.locator('#derive-index').fill('12')
   await derivationHelp.locator('summary').click()
-  await expect(derivationHelp.getByRole('heading', { name: 'Why a recipe version?' })).toBeVisible()
+  await expect(derivationHelp.getByRole('heading', { name: 'Recipe 1: keeping passwords reproducible' })).toBeVisible()
   await page.locator('#theme-toggle').click()
   await expect(derivationHelp).toHaveAttribute('open', '')
   await expect(page.locator('#derive-secret')).toHaveValue('synthetic help review secret')

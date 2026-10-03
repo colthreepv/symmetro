@@ -9,7 +9,7 @@ type ValueElement = HTMLInputElement | HTMLTextAreaElement
 const modes: Mode[] = ['encrypt', 'decrypt', 'derive']
 const fields: Record<Mode, { input: string, secret: string, output: string, button: string, label: string }> = {
   encrypt: { input: 'encrypt-text', secret: 'secret', output: 'encrypted-text', button: 'encrypt-button', label: 'Encrypt' },
-  decrypt: { input: 'decrypt-text', secret: 'decrypt-secret', output: 'decrypted-text', button: 'decrypt-button', label: 'Decrypt' },
+  decrypt: { input: 'decrypt-text', secret: 'decrypt-secret', output: 'decrypted-text', button: 'decrypt-button', label: 'Show Clear Text' },
   derive: { input: 'derive-index', secret: 'derive-secret', output: 'derived-password', button: 'derive-button', label: 'Generate' },
 }
 function element<T extends HTMLElement>(id: string): T {
