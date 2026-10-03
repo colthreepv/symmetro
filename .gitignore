@@ -3,3 +3,7 @@ node_modules
 
 # build dir
 dist
+
+# browser test output
+playwright-report
+test-results

@@ -1,34 +1,46 @@
-# symmetro
-Encrypt and decrypt text with AES-256-GCM on a easy to deploy webpage
-Available on [github pages](https://colthreepv.github.io/symmetro/) and [statically build releases](https://github.com/colthreepv/symmetro/releases)
+# Symmetro
 
-## Security & Verification
+Protect text with a password, directly in your browser.
 
-This is critical security software. To ensure the integrity of the built files, we use **GitHub Attestations** which provide cryptographic proof of provenance.
+[Try Symmetro](https://colthreepv.github.io/symmetro/) ·
+[Download an offline release](https://github.com/colthreepv/symmetro/releases)
 
-### Verifying Build Integrity
+## Use it offline
 
-To verify that a downloaded `index.html` file was built from the official source code:
+1. Download the HTML file attached to a release
+2. Open that file in a modern browser; it does not need a server or an internet connection
+3. Choose **Encrypt**, enter your text and a password, and save the encrypted result
+4. To read it again, choose **Decrypt** and enter the encrypted text and the same password
 
-```bash
-# Install GitHub CLI if you haven't already
-# Then verify the file:
+The downloaded app is one self-contained HTML file. Keep a copy of that file and
+your encrypted text. Documentation links open external websites only when you
+follow them.
+
+## Keep your data safe
+
+- Use a long, unpredictable password and keep it separately from the encrypted text
+- There is no account, password reset, or recovery service. A forgotten password cannot be recovered by the app
+- Processing happens in your browser. Use a device and browser you trust, and work offline when handling sensitive text
+- Browser extensions, other software, and clipboard history are outside the app's control
+
+## Verify your download
+
+Release files include GitHub build attestations, which identify the source
+commit and workflow that produced the file. If you have the GitHub CLI, verify
+your downloaded file with:
+
+```sh
 gh attestation verify index.html -R colthreepv/symmetro
 ```
 
-This will show you:
-- ✅ **Exact commit SHA** used to build the file
-- ✅ **When it was built** and by which workflow
-- ✅ **Cryptographic proof** it hasn't been tampered with
+Replace `index.html` with the actual downloaded filename. This checks the file's
+provenance and integrity; it is not a security audit or a guarantee that the
+software is safe. Verify downloads before using them for sensitive information.
 
-**Always verify files before using them for sensitive operations!**
+## Development
 
-## Usage
-- have node 20.x or higher installed
-- install pnpm (`corepack use pnpm@latest`)
-- `pnpm install`
-- `pnpm start` (for dev mode)
-- `pnpm build` (for production build)
+For setup, builds, tests, and contribution details, see [DEV.md](DEV.md).
 
-# one gif
-![gif showing ui](https://github.com/user-attachments/assets/0ff6774f-5929-4d05-bc26-92e8272e39b4)
+## Demo
+
+![Demo of the encryption interface](https://github.com/user-attachments/assets/0ff6774f-5929-4d05-bc26-92e8272e39b4)

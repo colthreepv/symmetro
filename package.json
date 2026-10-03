@@ -2,17 +2,22 @@
   "name": "symmetro",
   "type": "module",
   "version": "2.0.2",
-  "packageManager": "pnpm@9.1.0-0+sha256.c557b24d2298d9b5e3be7086ebf55a28253b008324d545f72645a6de89844102",
+  "packageManager": "pnpm@9.1.0",
   "description": "",
   "license": "UNLICENSED",
   "main": "src/index.html",
   "scripts": {
     "start": "vite --host",
     "build": "vite build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "eslint .",
+    "test": "node --test tests/*.test.js",
+    "test:artifact": "node scripts/check-artifact.js",
+    "test:browser": "playwright test",
+    "check": "pnpm lint && pnpm test && pnpm build && pnpm test:artifact"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^2.21.1",
+    "@playwright/test": "1.63.0",
     "autoprefixer": "^10.4.19",
     "daisyui": "^4.12.2",
     "eslint": "^8.57.0",

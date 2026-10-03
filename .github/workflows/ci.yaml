@@ -5,36 +5,43 @@ on:
     tags:
       - 'v*'
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
-  contents: write
-  pages: write
-  id-token: write
-  attestations: write
+  contents: read
 
 jobs:
   # Full build with attestations and release for tags
   build-and-release:
     name: Build and Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Install pinned pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup pinned Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-
-      - name: Install pnpm
-        run: npm install -g pnpm
+          node-version-file: .node-version
+          cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
-      - name: Build project
-        run: pnpm run build
+      - name: Lint, unit test, build, and validate artifact
+        run: pnpm check
+
+      - name: Install browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Test downloaded HTML offline
+        run: pnpm test:browser
 
       - name: Create versioned copy for release
         run: |
@@ -62,6 +69,10 @@ jobs:
     name: Deploy
     needs: build-and-release
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
