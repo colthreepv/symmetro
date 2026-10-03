@@ -78,6 +78,7 @@ export class DecryptWorkspace {
       const label = document.createElement('span')
       label.className = 'entry-filename'
       label.textContent = filename
+      label.title = filename
       title.append(label)
     }
     const count = document.createElement('span')
