@@ -92,16 +92,17 @@ already-correct AES-GCM cipher is not inherently a security upgrade.
 
 ## Dependencies and offline packaging
 
-Runtime dependency: exact `hash-wasm@4.12.0` (MIT), locked in `package-lock.json`.
+Runtime dependency: exact `hash-wasm@4.12.0` (MIT), locked in `pnpm-lock.yaml`.
 The official package exposes `argon2id`, supports binary input/output, and embeds
 WASM in its JavaScript distribution. The inspected ESM package has no `fetch`
 call. Import only `argon2id`; let the existing production bundler tree-shake the
 other hash algorithms. Do not use a runtime CDN script or external WASM URL.
 
-The isolated harness uses TypeScript 5.9.3 and `@types/node` 24.10.1. Tests run
+Development uses TypeScript 5.9.3 and `@types/node` 24.10.1. Tests run
 with Node 24's native TypeScript stripping and `node:test`; type checking is a
 separate `tsc --noEmit` step. Vite can transpile the `.ts` modules itself, but CI
-must still type-check them. UI/build integration remains the owning worker's job.
+must still type-check them. The production build bundles the derivation worker
+and WASM into the HTML; browser tests exercise the final offline artifact.
 
 Production acceptance still requires inspecting the final built artifact, opening
 it directly through `file://` with network disabled, and checking derivation,
@@ -122,9 +123,9 @@ also run against hash-wasm and Web Crypto in the TypeScript tests.
 Run:
 
 ```sh
-npm ci --ignore-scripts
-npm run typecheck
-npm test
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm typecheck
+pnpm test
 # Optional independent re-verification; never supply personal secrets.
 python -m pip install -r scripts/reference-requirements.txt
 python scripts/reference_vectors.py
