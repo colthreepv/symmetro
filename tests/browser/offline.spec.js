@@ -85,6 +85,113 @@ test('numbered passwords match independent vectors entirely offline', async ({ p
   expect(errors).toEqual([])
 })
 
+test('length presets display and copy exact v1 prefixes without regenerating', async ({ page, context }) => {
+  await context.setOffline(true)
+  await page.addInitScript(() => {
+    const NativeWorker = window.Worker
+    window.workersCreated = 0
+    window.Worker = class extends NativeWorker {
+      constructor(...args) {
+        super(...args)
+        window.workersCreated += 1
+      }
+    }
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (text) => {
+      window.copiedText = text
+    } } })
+  })
+  await page.goto(`${artifactUrl.href}#derive`)
+  await expect(page.getByRole('radio', { name: 'Max (43 characters)', exact: true })).toBeChecked()
+  await page.locator('#derive-secret').fill(vectors[0].secret)
+  await page.locator('#derive-button').click()
+  const output = page.locator('#derived-password')
+  const copy = page.locator('[data-copy="derived-password"]')
+  await expect(output).toHaveValue(vectors[0].expected)
+  for (const length of [16, 24, 43]) {
+    await page.getByRole('radio', { name: length === 43 ? 'Max (43 characters)' : `${length} characters`, exact: true }).check()
+    await expect(output).toHaveValue(vectors[0].expected.slice(0, length))
+    await expect(output).toHaveAttribute('type', 'password')
+    await expect(page.locator('#derived-length')).toHaveText(`${length} characters · base64url`)
+    await copy.click()
+    await expect(copy).toHaveText('Copied.')
+    expect(await page.evaluate(() => window.copiedText)).toBe(vectors[0].expected.slice(0, length))
+  }
+  expect(await page.evaluate(() => window.workersCreated)).toBe(1)
+  await page.locator('[data-reveal="derived-password"]').click()
+  await page.getByRole('radio', { name: '16 characters', exact: true }).check()
+  await expect(output).toHaveAttribute('type', 'text')
+  await expect(output).toHaveValue(vectors[0].expected.slice(0, 16))
+  await expect(copy).toHaveText('Copy')
+  await page.setViewportSize({ width: 390, height: 844 })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: 'test-results/screenshots/symmetro-length-16-mobile.png', fullPage: true })
+  await page.getByRole('radio', { name: '24 characters', exact: true }).check()
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.screenshot({ path: 'test-results/screenshots/symmetro-length-24-desktop.png', fullPage: true })
+  await page.locator('#next-password').click()
+  await expect(output).toHaveValue(vectors[1].expected.slice(0, 24))
+  await expect(output).toHaveAttribute('type', 'password')
+  await page.locator('#derive-index').fill('3')
+  await expect(output).toHaveValue('')
+  await page.getByRole('radio', { name: 'Max (43 characters)', exact: true }).check()
+  await expect(output).toHaveValue('')
+  await expect(copy).toBeDisabled()
+  await page.getByRole('radio', { name: '16 characters', exact: true }).check()
+  await page.locator('#derive-button').click()
+  await expect(output).toHaveValue(vectors[2].expected.slice(0, 16))
+  await page.locator('[data-clear="derive"]').click()
+  await expect(page.getByRole('radio', { name: 'Max (43 characters)', exact: true })).toBeChecked()
+  await expect(output).toHaveValue('')
+  await page.getByRole('radio', { name: '24 characters', exact: true }).check()
+  await tab(page, 'Encrypt / Decrypt').click()
+  await tab(page, 'Derive').click()
+  await expect(page.getByRole('radio', { name: 'Max (43 characters)', exact: true })).toBeChecked()
+})
+
+test('keyboard length changes during generation and copying use the latest selection', async ({ page, context }) => {
+  await context.setOffline(true)
+  await page.addInitScript((password) => {
+    window.workerTerminated = false
+    window.Worker = class {
+      postMessage() {
+        window.releaseDerivation = () => this.onmessage({ data: { password } })
+      }
+
+      terminate() {
+        window.workerTerminated = true
+      }
+    }
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (text) => {
+      window.copiedText = text
+      await new Promise((resolve) => {
+        window.releaseCopy = resolve
+      })
+      window.copyCompleted = true
+    } } })
+  }, vectors[0].expected)
+  await page.goto(`${artifactUrl.href}#derive`)
+  await page.locator('#derive-secret').fill(vectors[0].secret)
+  await page.locator('#derive-button').click()
+  await expect(page.locator('#derive-button')).toHaveAttribute('aria-busy', 'true')
+  await page.getByRole('radio', { name: 'Max (43 characters)', exact: true }).focus()
+  await page.keyboard.press('ArrowLeft')
+  await expect(page.getByRole('radio', { name: '24 characters', exact: true })).toBeChecked()
+  await page.keyboard.press('ArrowLeft')
+  await expect(page.getByRole('radio', { name: '16 characters', exact: true })).toBeChecked()
+  expect(await page.evaluate(() => window.workerTerminated)).toBe(false)
+  await page.evaluate(() => window.releaseDerivation())
+  await expect(page.locator('#derived-password')).toHaveValue(vectors[0].expected.slice(0, 16))
+  const copy = page.locator('[data-copy="derived-password"]')
+  await copy.click()
+  await expect.poll(() => page.evaluate(() => window.copiedText)).toBe(vectors[0].expected.slice(0, 16))
+  await page.getByRole('radio', { name: '24 characters', exact: true }).check()
+  await page.evaluate(() => window.releaseCopy())
+  await expect.poll(() => page.evaluate(() => window.copyCompleted)).toBe(true)
+  await expect(copy).toHaveText('Copy')
+  await expect(page.locator('#derive-status')).toHaveText('')
+  await expect(page.locator('#derived-password')).toHaveValue(vectors[0].expected.slice(0, 24))
+})
+
 test('invalid input is recoverable and editing clears old results', async ({ page, context }) => {
   await context.setOffline(true)
   await page.goto(`${artifactUrl.href}#decrypt`)
@@ -239,9 +346,10 @@ test('copy fallback selects and reveals a generated password if copying is unava
     document.execCommand = () => false
   })
   await page.goto(`${artifactUrl.href}#derive`)
+  await page.getByRole('radio', { name: '24 characters', exact: true }).check()
   await page.locator('#derive-secret').fill(vectors[0].secret)
   await page.locator('#derive-button').click()
-  await expect(page.locator('#derived-password')).toHaveValue(vectors[0].expected, { timeout: 20000 })
+  await expect(page.locator('#derived-password')).toHaveValue(vectors[0].expected.slice(0, 24), { timeout: 20000 })
   await page.locator('[data-copy="derived-password"]').click()
   await expect(page.locator('#derived-password')).toHaveAttribute('type', 'text')
   await expect(page.locator('[data-reveal="derived-password"]')).toHaveText('Hide')
@@ -249,7 +357,7 @@ test('copy fallback selects and reveals a generated password if copying is unava
   await expect(page.locator('#derived-password')).toBeFocused()
   await expect(page.locator('#derive-status')).toContainText('result is selected')
   const selected = await page.locator('#derived-password').evaluate(input => input.selectionEnd - input.selectionStart)
-  expect(selected).toBe(43)
+  expect(selected).toBe(24)
 })
 
 test('multiline secret paste and drop are rejected without changing the secret', async ({ page }) => {

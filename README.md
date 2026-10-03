@@ -18,18 +18,22 @@ Choose **Encrypt / Decrypt** or **Derive**. In the text tool, select an operatio
 - **Derive:** enter a secret and a password number to recreate a numbered password. The same secret, recipe version, and number always give the same result
 
 In Decrypt, a small indicator checks whether the password matches while you type.
-Choose **Decrypt** to display the recovered text.
+Choose **Show Clear Text** to display the recovered text.
 
 ## Numbered passwords
 
 Keep track of which number you use for each purpose. There are no service names,
 accounts, saved profiles, or saved password lists. To reproduce a password later,
-you need the exact same secret, recipe version, and number.
+you need the exact same secret, recipe version, number, and selected length.
+Use a different password number for each account. Changing the length alone
+does not create an independent password.
 
 The secret field accepts **one line of text**. Spaces, capitalization, and exact
 characters matter. Multiline paste and drop are rejected rather than silently
-changing your secret. Generated passwords have 43 characters and may not fit
-every service's password rules.
+changing your secret. Choose **16**, **24**, or **Max (43)** characters; Max is
+selected initially. Shorter lengths use the first characters of the same
+generated password. Keep the same length when recreating it. These presets
+may not fit every service's password rules.
 
 Use **Copy** to copy a result, or select it manually if your browser does not
 allow clipboard access. Switching tools or operations and reloading clear the

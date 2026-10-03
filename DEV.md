@@ -93,3 +93,11 @@ The explanations define technical terms for readers without cryptography
 knowledge. The single-option recipe selector is disabled; v1 remains the fixed
 calculation. Tool headers have matching heights at desktop and mobile widths,
 and the release version sits at the bottom of the brand row.
+
+Derive's Length control offers 16, 24, and Max (43), with Max selected initially.
+The worker still produces the exact full v1 result. The UI keeps it in memory
+and displays/copies its first N characters; changing length does not rerun or
+cancel derivation. Pending results use the latest length choice. Editing inputs,
+clearing, and navigation discard the full result; clearing and navigation reset
+length to Max. Copy feedback from a previous length cannot label a newer result
+as copied. The account mapping must retain both the number and chosen length.

@@ -121,6 +121,14 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:1 }
 .recipe-fields select:disabled { color:var(--muted); cursor:default }
 .recipe-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(120px,.4fr); gap:16px }
 .recipe-fields .field { margin-bottom:0 }
+.length-control { border:0; padding:0; margin:20px 0 0; min-width:0 }
+.length-control legend { padding:0; margin-bottom:8px; font-size:14px; font-weight:500 }
+.length-options { display:flex; gap:4px; padding:3px; max-width:300px; border:1px solid var(--line-soft); border-radius:8px; background:var(--field) }
+.length-options label { flex:1; position:relative; margin:0; cursor:pointer }
+.length-options input { inset:0; z-index:1; width:100%; height:100%; margin:0; padding:0; opacity:0; clip:auto; cursor:pointer }
+.length-options span { display:flex; align-items:center; justify-content:center; min-height:44px; padding:0 12px; border-radius:5px; color:var(--muted); font-size:14px; font-weight:600; white-space:nowrap }
+.length-options input:checked+span { color:var(--accent); background:var(--selected); box-shadow:inset 0 0 0 1px var(--line) }
+.length-options input:focus-visible+span { outline:2px solid var(--accent); outline-offset:2px }
 .number-field { position:relative }
 .number-field span { position:absolute; left:14px; top:12px; color:var(--muted); font:18px ui-monospace,SFMono-Regular,Consolas,monospace }
 .number-field input { padding-left:36px; font-family:ui-monospace,SFMono-Regular,Consolas,monospace }

@@ -23,6 +23,7 @@ let activeMode: Mode = 'encrypt'
 let lastTextMode: TextMode = 'encrypt'
 let revision = 0
 let busy = false
+let derivedPassword = ''
 let validationTimer: ReturnType<typeof setTimeout> | undefined
 let validationFlight: Promise<void> | undefined
 let queuedValidation: number | undefined
@@ -81,8 +82,17 @@ function clearOutput(mode: Mode): void {
   delete output.dataset.ready
   const copy = document.querySelector<HTMLButtonElement>(`[data-copy="${fields[mode].output}"]`)!
   copy.textContent = 'Copy'
-  if (mode === 'derive')
+  if (mode === 'derive') {
+    derivedPassword = ''
     hideSecret('derived-password')
+  }
+}
+function updateDerivedDisplay(): void {
+  const selected = document.querySelector<HTMLInputElement>('input[name="derive-length"]:checked')!
+  const length = Number(selected.value)
+  element('derived-length').textContent = `${length} characters · base64url`
+  valueElement('derived-password').value = derivedPassword.slice(0, length)
+  document.querySelector<HTMLButtonElement>('[data-copy="derived-password"]')!.textContent = 'Copy'
 }
 function invalidate(): void {
   revision += 1
@@ -110,8 +120,11 @@ function resetMode(mode: Mode): void {
   hideSecret(config.secret)
   clearOutput(mode)
   setStatus(mode)
-  if (mode === 'derive')
+  if (mode === 'derive') {
     element('derived-label').textContent = 'Password #1'
+    document.querySelector<HTMLInputElement>('input[name="derive-length"][value="43"]')!.checked = true
+    updateDerivedDisplay()
+  }
 }
 function clearAll(): void {
   invalidate()
@@ -295,8 +308,11 @@ async function run(mode: Mode): Promise<void> {
     const output = valueElement(config.output)
     output.value = result
     output.dataset.ready = 'true'
-    if (mode === 'derive')
+    if (mode === 'derive') {
+      derivedPassword = result
+      updateDerivedDisplay()
       element('derived-label').textContent = `Password #${input}`
+    }
     if (mode === 'decrypt')
       setValidation('valid')
     setButtonState(mode, 'success')
@@ -330,7 +346,7 @@ async function copyResult(button: HTMLButtonElement): Promise<void> {
     }
   }
   catch { /* file:// or clipboard permission may need the selection fallback below */ }
-  if (token !== revision || mode !== activeMode)
+  if (token !== revision || mode !== activeMode || text !== output.value)
     return
   if (!copied) {
     // Use a temporary textarea so password-type fields can also be copied.
@@ -371,7 +387,7 @@ for (const mode of modes) {
     event.preventDefault()
     void run(mode)
   })
-  element(`panel-${mode}`).querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input:not([readonly]), textarea:not([readonly]), select').forEach((input) => {
+  element(`panel-${mode}`).querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input:not([readonly]):not([name="derive-length"]), textarea:not([readonly]), select').forEach((input) => {
     input.addEventListener('input', () => {
       invalidate()
       clearOutput(mode)
@@ -402,6 +418,13 @@ for (const mode of modes) {
     }
   })
 }
+document.querySelectorAll<HTMLInputElement>('input[name="derive-length"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    updateDerivedDisplay()
+    if (derivedPassword)
+      setStatus('derive')
+  })
+})
 // Each list has its own roving tab stop and automatic activation.
 for (const ids of [['tab-text', 'tab-derive'], ['tab-encrypt', 'tab-decrypt']]) {
   const activate = (id: string, focus = false) => {
