@@ -265,3 +265,5 @@ footer>div { display:flex; gap:24px }
 .accordion-list .copy-button,.accordion-list .remove-input { justify-self:end }
 .accordion-list textarea { width:100%; min-width:0 }
 .version { align-self:center; margin-top:8px; margin-bottom:0 }
+
+.accordion-list summary:focus-visible { outline-offset:-3px }
