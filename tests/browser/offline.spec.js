@@ -612,6 +612,22 @@ test('empty inputs stay neutral and Unicode counts update without collapsing an 
   await expect(page.locator('#decrypt-outputs > details')).toHaveCount(0)
 })
 
+test('a scheduled password check preserves focus when the user returns to an input', async ({ page }) => {
+  await page.goto(`${artifactUrl.href}#decrypt`)
+  await fillCipher(page, 0, fixture.payload)
+  // Make the focus transition before the debounce can fire, even on a busy CI host.
+  await page.locator('#decrypt-secret').evaluate((input, password) => {
+    input.focus()
+    input.value = password
+    input.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    document.querySelector('#decrypt-text').focus()
+  }, fixture.password)
+  await expectCipherStates(page, ['valid'])
+  await expect(page.locator('#decrypt-inputs > details')).toHaveAttribute('open', '')
+  await expect(page.locator('#decrypt-text')).toBeFocused()
+  await expect(page.locator('#decrypted-text')).toHaveValue('')
+})
+
 test('keyboard accordions keep one input and one output open independently', async ({ page }) => {
   await page.goto(`${artifactUrl.href}#decrypt`)
   const inputs = page.locator('#decrypt-inputs > details')
