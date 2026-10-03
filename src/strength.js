@@ -60,13 +60,11 @@ export function testStrength(input) {
   // Two in a row should not repeat.
   // Only eligible for non-super-short passwords.
   let isNotPatterned = true
-  let last2 = ''
-  let next2 = ''
 
   if (input.length > 7) {
     for (let i = 2; i < input.length; i++) {
-      last2 = input.slice(i - 2, i)
-      next2 = input.slice(i, i + 2)
+      const last2 = input.slice(i - 2, i)
+      const next2 = input.slice(i, i + 2)
 
       if (last2 === next2) {
         isNotPatterned = false

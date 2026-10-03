@@ -1,6 +1,46 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* The small reset this interface needs, without a CSS framework. */
+*,::before,::after {
+  box-sizing:border-box;
+  border:0 solid #e5e7eb
+}
+html {
+  line-height:1.5;
+  -webkit-text-size-adjust:100%;
+  tab-size:4;
+  -webkit-tap-highlight-color:transparent
+}
+body {
+  line-height:inherit
+}
+h1,h2,h3,h4,h5,h6 {
+  font-size:inherit;
+  font-weight:inherit
+}
+h1,h2,h3,h4,h5,h6,p {
+  margin:0
+}
+button,input,select,textarea {
+  font-feature-settings:inherit;
+  font-variation-settings:inherit;
+  letter-spacing:inherit;
+  color:inherit;
+  margin:0;
+  padding:0
+}
+button,select {
+  text-transform:none
+}
+button {
+  appearance:button;
+  background-color:transparent;
+  background-image:none
+}
+summary {
+  display:list-item
+}
+* {
+  scrollbar-color:currentColor transparent
+}
 :root {
   font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   color:#202d29;
@@ -186,6 +226,7 @@ h1 span {
 }
 .tabs {
   display:flex;
+  align-items:flex-end;
   gap:5px;
   background:#edf0e9;
   border-radius:10px;
