@@ -74,3 +74,9 @@ Choose **Show Clear Text** to reveal only the messages that match. Input and
 result accordions retain their matching numbers; only one in each list is open
 at a time. Editing or removing an input hides the results until you reveal them
 again. Nothing is uploaded or saved.
+
+You can also drop ciphertext text files onto **Drop encrypted text files here**,
+or select **Choose files**. Each accepted file becomes a new input. Files stay
+on your device. Use UTF-8, or UTF-16 with a byte-order mark; binary, malformed,
+empty, and non-ciphertext files are rejected individually. Limits are 1 MiB per
+file, 20 inputs, and 5 MiB of imported files in the workspace.

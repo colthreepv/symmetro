@@ -1,7 +1,8 @@
 import { decryptText } from './crypto.js'
+import { MAX_DECRYPT_INPUTS, readTextFile, safeFileName, validateTextFileBatch } from './text-file-import.ts'
 
 type State = 'idle' | 'pending' | 'valid' | 'invalid'
-type Entry = { id: number, input: HTMLTextAreaElement, details: HTMLDetailsElement, validation: HTMLElement, count: HTMLElement }
+type Entry = { text: string, fileBytes: number, id: number, input: HTMLTextAreaElement, details: HTMLDetailsElement, validation: HTMLElement, count: HTMLElement }
 type Hooks = {
   supported: boolean
   changed: () => void
@@ -32,6 +33,7 @@ export class DecryptWorkspace {
       this.schedule(true)
     })
     this.bindComposition(this.secret, true)
+    this.bindFileImport()
     this.reset()
   }
   invalidate(): void {
@@ -40,6 +42,8 @@ export class DecryptWorkspace {
     this.timer = undefined
     this.queued = undefined
     this.busy = false
+    const importStatus = get('decrypt-import-status')
+    if (importStatus) importStatus.textContent = ''
     for (const entry of this.entries) this.setState(entry, 'idle')
     this.secret.removeAttribute('aria-invalid')
   }
@@ -49,11 +53,14 @@ export class DecryptWorkspace {
     this.entries = []
     this.nextId = 0
     get('decrypt-inputs').replaceChildren()
+    get('decrypt-import-status').textContent = ''
+    get<HTMLInputElement>('decrypt-file-picker').value = ''
+    get('decrypt-file-drop').dataset.dragging = 'false'
     this.add('', false)
     this.clearOutput()
   }
-  add(text = '', notify = true): void {
-    if (this.entries.length >= 20) return
+  add(text = '', notify = true, filename = '', fileBytes = 0): void {
+    if (this.entries.length >= MAX_DECRYPT_INPUTS) return
     if (notify) this.hooks.changed()
     this.collapseInputs()
     const id = this.nextId++
@@ -65,6 +72,12 @@ export class DecryptWorkspace {
     const title = document.createElement('span')
     title.className = 'entry-title'
     title.textContent = `Input ${this.entries.length + 1}`
+    if (filename) {
+      const label = document.createElement('span')
+      label.className = 'entry-filename'
+      label.textContent = filename
+      title.append(label)
+    }
     const count = document.createElement('span')
     count.className = 'field-meta entry-count'
     count.textContent = countText(text)
@@ -99,7 +112,7 @@ export class DecryptWorkspace {
     remove.textContent = 'Remove input'
     body.append(label, input, remove)
     details.append(summary, body)
-    const entry = { id, input, details, validation, count }
+    const entry = { text, fileBytes, id, input, details, validation, count }
     this.entries.push(entry)
     this.setState(entry, 'idle')
     get('decrypt-inputs').append(details)
@@ -108,6 +121,7 @@ export class DecryptWorkspace {
     })
     input.addEventListener('input', () => {
       this.hooks.changed()
+      entry.text = input.value
       count.textContent = countText(input.value)
       this.schedule(false)
     })
@@ -127,7 +141,7 @@ export class DecryptWorkspace {
     entry.input.value = ''
     entry.details.remove()
     if (!this.entries.length) this.add('', false)
-    this.entries.forEach((item, i) => { item.details.querySelector('.entry-title')!.textContent = `Input ${i + 1}` })
+    this.entries.forEach((item, i) => { item.details.querySelector('.entry-title')!.firstChild!.textContent = `Input ${i + 1}` })
     const next = this.entries[Math.min(index, this.entries.length - 1)]
     this.collapseInputs()
     next.details.open = true
@@ -159,7 +173,7 @@ export class DecryptWorkspace {
   updateButton(): void {
     get<HTMLButtonElement>('decrypt-button').disabled = !this.hooks.supported || !this.secret.value || !this.entries.some(entry => entry.input.value) || this.busy
     get('decrypt-button').setAttribute('aria-busy', String(this.busy))
-    get<HTMLButtonElement>('add-decrypt-input').disabled = this.entries.length >= 20
+    get<HTMLButtonElement>('add-decrypt-input').disabled = this.entries.length >= MAX_DECRYPT_INPUTS
   }
   clearOutput(): void {
     const root = get('decrypt-outputs')
@@ -191,12 +205,94 @@ export class DecryptWorkspace {
       void this.check(token)
     }, 275)
   }
+  private decodePayload(text: string): Uint8Array {
+    const compact = text.replace(/\s/g, '')
+    if (!compact || !/^[A-Z0-9+/]*={0,2}$/i.test(compact)) throw new Error('This file does not contain complete base64 encrypted text.')
+    let binary: string
+    try { binary = atob(compact) }
+    catch { throw new Error('This file does not contain complete base64 encrypted text.') }
+    if (binary.length < 44) throw new Error('This file does not contain complete base64 encrypted text.')
+    return Uint8Array.from(binary, character => character.charCodeAt(0))
+  }
+  private bindFileImport(): void {
+    const picker = get<HTMLInputElement>('decrypt-file-picker')
+    const zone = get('decrypt-file-drop')
+    get('choose-decrypt-files').addEventListener('click', () => picker.click())
+    picker.addEventListener('change', () => {
+      const files = Array.from(picker.files ?? [])
+      picker.value = '' // Selecting the same file again must still dispatch change.
+      if (files.length) void this.importFiles(files)
+    })
+    let depth = 0
+    const isFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files')
+    zone.addEventListener('dragenter', event => {
+      if (!isFiles(event)) return
+      event.preventDefault()
+      depth++
+      zone.dataset.dragging = 'true'
+    })
+    zone.addEventListener('dragover', event => {
+      if (!isFiles(event)) return
+      event.preventDefault()
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+      zone.dataset.dragging = 'true'
+    })
+    zone.addEventListener('dragleave', event => {
+      if (!isFiles(event)) return
+      depth = Math.max(0, depth - 1)
+      if (!depth) zone.dataset.dragging = 'false'
+    })
+    zone.addEventListener('drop', event => {
+      if (!isFiles(event)) return
+      event.preventDefault()
+      depth = 0
+      zone.dataset.dragging = 'false'
+      const files = Array.from(event.dataTransfer?.files ?? [])
+      if (files.length) void this.importFiles(files)
+    })
+    // Files dropped outside the target must never navigate away from the offline app.
+    for (const type of ['dragover', 'drop'] as const) {
+      document.addEventListener(type, event => {
+        if (isFiles(event)) event.preventDefault()
+      })
+    }
+  }
+  private async importFiles(files: File[]): Promise<void> {
+    this.hooks.changed()
+    const token = this.revision
+    const status = get('decrypt-import-status')
+    status.textContent = 'Reading local files…'
+    let accepted = 0
+    const rejected: string[] = []
+    const selection = files.slice(0, MAX_DECRYPT_INPUTS)
+    if (files.length > selection.length)
+      rejected.push(`${files.length - selection.length} file(s) skipped: choose no more than 20 files at once.`)
+    for (const [index, file] of selection.entries()) {
+      if (token !== this.revision) return
+      if (this.entries.length >= MAX_DECRYPT_INPUTS) {
+        rejected.push(`${selection.length - index} file(s) skipped: use no more than 20 inputs.`)
+        break
+      }
+      try {
+        validateTextFileBatch([file], this.entries.length, this.entries.reduce((total, entry) => total + entry.fileBytes, 0))
+        const imported = await readTextFile(file)
+        if (token !== this.revision) return
+        this.decodePayload(imported.text)
+        this.add(imported.text, false, imported.name, imported.byteLength)
+        accepted++
+      } catch (error) {
+        if (token !== this.revision) return
+        rejected.push(`${safeFileName(file.name)}: ${error instanceof Error ? error.message : 'Could not read this file.'}`)
+      }
+    }
+    if (token !== this.revision) return
+    status.textContent = `${accepted ? `Imported ${accepted} file${accepted === 1 ? '' : 's'}.` : 'No files imported.'}${rejected.length ? ` Rejected: ${rejected.join(' ')}` : ''}`
+    this.updateButton()
+    if (accepted) this.entries.at(-1)!.input.focus()
+    this.schedule(false)
+  }
   private async decrypt(entry: Entry, secret: string): Promise<string> {
-    const compact = entry.input.value.replace(/\s/g, '')
-    if (!compact || !/^[A-Z0-9+/]*={0,2}$/i.test(compact)) throw new Error('invalid payload')
-    const binary = atob(compact)
-    if (binary.length < 44) throw new Error('invalid payload')
-    return decryptText(Uint8Array.from(binary, character => character.charCodeAt(0)), secret)
+    return decryptText(this.decodePayload(entry.text), secret)
   }
   private async check(token: number): Promise<void> {
     if (token !== this.revision || this.busy || this.composing.size) return

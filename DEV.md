@@ -190,3 +190,27 @@ work and discard revealed results. The most recent validation request replaces
 obsolete queued work, and stale completions cannot reveal or relabel results.
 Neither ciphertext nor plaintext is persisted or transmitted. Encryption and
 the frozen derivation recipe are unchanged.
+
+### Local ciphertext-file import
+
+Decrypt accepts multiple files through its drop target or native picker. Every
+accepted file creates a new input; the existing blank/manual inputs remain.
+Files are decoded locally, never uploaded, and filenames are display-only text
+with paths, controls, and bidirectional-formatting characters removed.
+
+Accepted encodings are strict UTF-8 (optional BOM), or UTF-16 LE/BE with a BOM.
+Malformed encodings, empty text, binary/control content, and text without a
+complete base64 encrypted-envelope structure are rejected. A structurally valid
+file still needs the correct password and authentication tag to decrypt.
+Decoded ciphertext is retained without trimming or Unicode normalization;
+textarea display follows the browser's newline handling. Limits are 1 MiB per
+file, 20 files examined per selection, 20 total inputs, and 5 MiB of imported
+source bytes retained across the current inputs. Editing an imported input does
+not release its reserved byte budget; removing or clearing it does.
+
+Mixed batches report rejected files and retain accepted siblings. Reads happen
+serially. A new import, editing, removal, clearing, or navigation invalidates
+unfinished reads, so late file completions cannot repopulate newer UI state.
+Rejected files do not reserve input or retained-byte budget. The same file can
+be selected repeatedly as separate inputs. No MIME type or extension is trusted
+as proof that its contents are text.
