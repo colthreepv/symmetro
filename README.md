@@ -1,77 +1,59 @@
-# symmetro
-Encrypt and decrypt text, or derive reproducible numbered passwords, in one offline HTML file.
-Available on [github pages](https://colthreepv.github.io/symmetro/) and [statically build releases](https://github.com/colthreepv/symmetro/releases)
+# Symmetro
 
-## Security & Verification
+Protect text or recreate numbered passwords in one offline HTML file.
 
-This is critical security software. To ensure the integrity of the built files, we use **GitHub Attestations** which provide cryptographic proof of provenance.
+[Try Symmetro](https://colthreepv.github.io/symmetro/) ·
+[Download an offline release](https://github.com/colthreepv/symmetro/releases)
 
-### Verifying Build Integrity
+## Use it offline
 
-To verify that a downloaded `index.html` file was built from the official source code:
+Download the HTML file attached to a release and open it in a modern browser.
+The file contains everything the app needs; no server or internet connection is
+required. Documentation links open external websites only when you follow them.
 
-```bash
-# Install GitHub CLI if you haven't already
-# Then verify the file:
+Choose a tool:
+
+- **Encrypt:** protect text with a password, then save the encrypted result and keep the password separately
+- **Decrypt:** recover your text with the same password. Existing Symmetro encrypted text remains supported
+- **Derive:** enter a secret and a password number to recreate a numbered password. The same secret, recipe version, and number always give the same result
+
+## Numbered passwords
+
+Keep track of which number you use for each purpose. There are no service names,
+accounts, saved profiles, or saved password lists. To reproduce a password later,
+you need the exact same secret, recipe version, and number.
+
+The secret field accepts **one line of text**. Spaces, capitalization, and exact
+characters matter. Multiline paste and drop are rejected rather than silently
+changing your secret. Generated passwords have 43 characters and may not fit
+every service's password rules.
+
+Use **Copy** to copy a result, or select it manually if your browser does not
+allow clipboard access. Switching tools and reloading clear the fields. The app
+does not save your secrets or your number-to-purpose mapping.
+
+## Keep your data safe
+
+- Use a long, unpredictable, unique secret. Generating a long password does not make a weak secret safe
+- Identical inputs produce identical numbered passwords for everyone. Someone who knows one generated password can try guesses of your secret offline; a correct guess reveals all passwords derived from that secret
+- There is no account, password reset, or recovery service. You are responsible for remembering the original password or secret and any numbered-password mapping
+- Processing happens in your browser, without telemetry or a backend. Use a device and browser you trust, and work offline when handling sensitive information
+- Clearing fields cannot erase clipboard history or guarantee erasure from browser memory. Extensions and other software are outside the app's control
+
+## Verify your download
+
+Release files include GitHub build attestations, which identify the source
+commit and workflow that produced the file. If you have the GitHub CLI, verify
+your downloaded file with:
+
+```sh
 gh attestation verify index.html -R colthreepv/symmetro
 ```
 
-This will show you:
-- ✅ **Exact commit SHA** used to build the file
-- ✅ **When it was built** and by which workflow
-- ✅ **Cryptographic proof** it hasn't been tampered with
+Replace `index.html` with the actual downloaded filename. This checks the file's
+provenance and integrity; it is not a security audit or a guarantee that the
+software is safe. Verify downloads before using them for sensitive information.
 
-**Always verify files before using them for sensitive operations!**
+## Development
 
-## Usage
-- Use the Node.js version in `.node-version` (currently 24.19.0)
-- Install the exact pnpm version in `package.json`: `corepack enable && corepack prepare pnpm@9.1.0 --activate`
-- `pnpm install --frozen-lockfile --ignore-scripts`
-- `pnpm start` (for dev mode)
-- `pnpm build` (for production build)
-
-The production build produces exactly one file, `dist/index.html`. Download or
-copy this file and open it directly from the filesystem. Its JavaScript and CSS
-are embedded, so encryption and decryption do not require a server or an internet
-connection. Documentation links open external websites only when followed.
-
-## Three local tools
-
-- **Encrypt** protects any text with the existing AES-256-GCM envelope. Keep the password separately; there is no reset or recovery.
-- **Decrypt** opens existing Symmetro ciphertext, including the unchanged v2 format. Password checks run only on submission.
-- **Derive** turns secret text plus a positive password number and a recipe version into a deterministic 43-character base64url password. Remember your own mapping of numbers to uses. No service names, account names, saved profiles, or password lists are required.
-
-The Derive interface accepts **single-line secret text**, preserving its exact spaces, case, and Unicode characters. Multiline paste and text drop are explicitly rejected rather than silently changing the secret. The underlying versioned API supports exact UTF-8 text including newlines; see [the frozen v1 recipe and test vectors](DERIVATION_V1.md). Number inputs use decimal strings throughout, including beyond JavaScript's safe integer range. Recipe v1 supports 1 through 18446744073709551615.
-
-Recipe v1 uses Argon2id (64 MiB, 3 passes, parallelism 4) and HKDF-SHA256. Its salt is fixed and public for reproducibility. Identical inputs produce identical passwords for everyone. A known generated password lets an attacker test secret guesses offline; guessing the source secret reveals every number derived from it. Use a long, unpredictable, unique secret. Generating a long output does not make weak input safe. The 43-character format may not fit every site's password rules.
-
-All cryptographic dependencies, including the WASM implementation, are bundled. Derivation runs in one disposable inline worker; changing input, clearing, or switching tools terminates it and invalidates stale results. Nothing is persisted in local/session storage. Switching tools and reloading clear fields. Copying is explicit, with a selection fallback if browser clipboard access is unavailable. Clearing cannot erase clipboard history or guarantee erasure of JavaScript/browser memory.
-
-The interface uses English, local system fonts, responsive layouts, keyboard-accessible tabs, explicit pending/error states, and no external resources, telemetry, or backend. Documentation links navigate externally only when clicked.
-
-## Development checks
-
-- `pnpm check` runs lint, strict TypeScript checks, synthetic crypto regression tests, the build, and static
-  checks that the result is a self-contained HTML file
-- `pnpm exec playwright install chromium` installs the browser used by the tests
-- `pnpm test:browser` opens the built HTML using a `file://` URL with the browser
-  network disabled, checks encryption/decryption, a legacy fixture, derivation vectors, cancellation, keyboard navigation, input errors, and clipboard fallback, and fails
-  if the round trip tries to load a separate resource
-- To test an existing Chromium installation, set
-  `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path
-
-Pull requests and pushes to `main` run these checks and upload the verified HTML
-as the `symmetro-standalone-html` Actions artifact. Tagged releases run the same
-checks before the existing attestation, draft-release, and Pages deployment steps.
-Only release/deployment jobs receive write permissions.
-
-The fixed test fixture contains a synthetic password and preserves the existing
-v2 payload format: 16-byte salt, 12-byte IV, and AES-256-GCM ciphertext plus its
-16-byte authentication tag, encoded as base64. Key derivation remains
-PBKDF2-SHA256 with 100,000 iterations. Tests use no real credentials. These checks
-are regression safeguards, not a security audit or a guarantee of password
-strength.
-
-## Visual checks
-
-The browser suite captures empty-state desktop and mobile screenshots for Encrypt and Derive, and checks both layouts for horizontal overflow. CI uploads these as `symmetro-ui-screenshots`; screenshots use no real secrets.
+For setup, builds, tests, and contribution details, see [DEV.md](DEV.md).
