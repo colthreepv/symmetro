@@ -1,0 +1,6 @@
+{
+  "description": "Synthetic v2 AES-256-GCM fixture; PBKDF2-SHA256, 100000 iterations, 16-byte salt and 12-byte IV.",
+  "password": "synthetic legacy fixture only",
+  "text": "Symmetro compatibility fixture: café 🔐\nSecond line.",
+  "payload": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaG99gwdPQbzooQCtnnmIhf+oslqn7XirPzW2D7CoyFAd02SseMFqsiNv7dSIgzm1UQxLpK2oNIggck4UBW9YGhSZJTd5Ms07a"
+}
