@@ -4,6 +4,7 @@ import { readFile, readdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import process from 'node:process'
 import { pathToFileURL } from 'node:url'
+import { checkArtifactNotices } from './third-party-notices.js'
 
 export function checkArtifactHtml(html) {
   assert.match(html, /<!doctype html>/i, 'The artifact must be an HTML document')
@@ -35,6 +36,7 @@ export async function checkArtifact(directory = 'dist') {
   assert.deepEqual((await readdir(directory)).sort(), ['index.html'], 'Build must produce exactly dist/index.html')
   const html = await readFile(resolve(directory, 'index.html'), 'utf8')
   checkArtifactHtml(html)
+  checkArtifactNotices(html)
   return Buffer.byteLength(html)
 }
 
