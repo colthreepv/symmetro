@@ -61,6 +61,21 @@
             <textarea id="decrypted-text" class="result-text" rows="10" readonly aria-label="Decrypted text" placeholder="No result yet" spellcheck="false"></textarea>
           </div>
         </section>
+        <details class="tool-help" id="encryption-help">
+          <summary>How Encrypt / Decrypt works <span aria-hidden="true">+</span></summary>
+          <div class="help-content">
+            <p class="help-intro">Protect a text note for storage, or share encrypted text with someone who knows the password. Keep the password separately; Symmetro cannot recover it.</p>
+            <div class="help-grid">
+              <section><h3>One password, both ways</h3><p>AES (Advanced Encryption Standard) is a symmetric cipher: the same key locks and unlocks the text. Symmetro derives a 256-bit key from your password. Its GCM mode also checks for tampering; a wrong password or altered message fails to decrypt. It does not verify who sent the message.</p></section>
+              <section><h3>Why PBKDF2?</h3><p>A password is not an encryption key. PBKDF2 (Password-Based Key Derivation Function 2) converts it into one using SHA-256. The 100,000 iterations repeat this work to make each password guess more expensive. This is a fixed compatibility setting, not 100,000 encryptions, and it cannot make a weak password strong.</p></section>
+              <section><h3>Random salt</h3><p>A fresh 16-byte salt changes the password-to-key calculation for each message, even if you reuse a password. It limits reuse of precomputed guesses across messages. The salt is public and included in the result.</p></section>
+              <section><h3>IV: a fresh starting value</h3><p>The initialization vector (IV), also called a nonce here, is a fresh random 12-byte value for AES-GCM. A key must never reuse the same IV. Symmetro generates it for you and includes it in the result; it does not need to be secret.</p></section>
+              <section><h3>Decisions made for you</h3><p>The cipher, key derivation, iteration count, salt, IV, and 128-bit tamper-check tag are fixed or generated automatically. The result packages salt, IV, and encrypted text with its tag as copyable base64 text. Base64 is an encoding, not the encryption.</p></section>
+              <section><h3>What you keep</h3><p>You need the complete encrypted text and the exact password to decrypt later. Processing stays in your browser and the downloaded HTML works offline. Inputs are not saved. Anyone with the encrypted text can try password guesses offline.</p></section>
+            </div>
+            <div class="help-references"><span>References</span><a href="https://developer.mozilla.org/en-US/docs/Web/API/AesGcmParams" target="_blank" rel="noopener noreferrer">AES-GCM ↗</a><a href="https://developer.mozilla.org/en-US/docs/Web/API/Pbkdf2Params" target="_blank" rel="noopener noreferrer">PBKDF2 ↗</a></div>
+          </div>
+        </details>
       </section>
 
       <section id="panel-derive" class="workspace" role="tabpanel" aria-labelledby="tab-derive" hidden>
@@ -82,15 +97,28 @@
             <p id="recipe-help" class="field-help">Recreate with the exact secret, number, and recipe.</p>
           </div>
         </div>
+        <details class="tool-help" id="derivation-help">
+          <summary>How Derive works <span aria-hidden="true">+</span></summary>
+          <div class="help-content">
+            <p class="help-intro">Recreate numbered passwords without storing a password list. The same base secret, number, and recipe always give the same password. This generates a password; it does not encrypt a message.</p>
+            <div class="help-grid">
+              <section><h3>When it is useful</h3><p>Use different numbers for different accounts, or a new number when changing a password. Keep your own number-to-account mapping: Symmetro has no service names or saved profiles. You must also change the password at the account itself; generating a new one does not update it there.</p></section>
+              <section><h3>Argon2id: work + memory</h3><p>Argon2id turns your secret into a root key, with a deliberate cost in computation and memory to make guessing more expensive. The <strong>id</strong> variant combines approaches aimed at resisting memory shortcuts and side-channel attacks.</p></section>
+              <section><h3>64 MiB, 3 passes, 4 lanes</h3><p>64 MiB is the algorithm's memory budget; three iterations mean three passes over that memory. Four lanes divide the work into cooperating chains, not four times the memory or a promise of four browser threads. These memory and work settings match RFC 9106's second recommended Argon2id profile: a smaller memory budget than its first recommendation, with more passes. Browser overhead adds to memory use.</p></section>
+              <section><h3>HKDF: one output per number</h3><p>HKDF (HMAC-based Key Derivation Function), using SHA-256, takes the root key and combines it with the password number and a fixed purpose label. This separates the numbered outputs. It is not the slow password-hardening step and does not add unpredictability to a weak secret.</p></section>
+              <section><h3>The recovery tradeoff</h3><p>Recipe v1 uses fixed public salts so no personal salt needs to be saved. Identical inputs give identical passwords for everyone. A known output allows offline guesses of the secret; a successful guess exposes all its numbers. Use a long, unpredictable base secret. A typo produces a different password without a warning.</p></section>
+              <section><h3>Why a recipe version?</h3><p>A recipe identifies the exact calculation, including parameters and output format. Only v1 exists; more versions are not currently promised. A future change would need a new recipe while keeping v1 available to recreate old passwords. It is separate from the app version and encryption format. Outputs are 43 base64url characters; some sites may reject that format.</p></section>
+            </div>
+            <div class="help-references"><span>References</span><a href="https://www.rfc-editor.org/rfc/rfc9106.html#section-4" target="_blank" rel="noopener noreferrer">Argon2id parameters ↗</a><a href="https://www.rfc-editor.org/rfc/rfc5869.html#section-3.2" target="_blank" rel="noopener noreferrer">HKDF ↗</a></div>
+          </div>
+        </details>
       </section>
 
       <div class="workspace-footnote">Switching tools or modes clears inputs and results.</div>
-      <details class="technical-notes">
-        <summary>Technical details <span aria-hidden="true">+</span></summary>
-        <div class="notes-grid">
-          <div><h3>Encryption</h3><p>AES-256-GCM · PBKDF2-SHA256, 100,000 iterations. Random salt and IV per message. Compatible with existing Symmetro ciphertext.</p></div>
-          <div><h3>Derivation v1</h3><p>Argon2id, 64 MiB, 3 iterations, 4 lanes · HKDF-SHA256. Fixed public salts. Identical inputs give identical outputs; a known output permits offline guesses of the base secret.</p></div>
-          <div><h3>Storage</h3><p>No inputs or results are saved. No password recovery. Clearing fields does not erase clipboard history or guarantee memory erasure.</p></div>
+      <details class="storage-notes">
+        <summary>Storage &amp; clearing <span aria-hidden="true">+</span></summary>
+        <div class="storage-content">
+          <p>Inputs and results are not saved. Clearing removes them from the interface, but cannot erase clipboard history or guarantee erasure from browser memory. Browser extensions and other software on your device remain outside this tool's control.</p>
         </div>
       </details>
     </main>

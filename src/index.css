@@ -81,7 +81,7 @@ h2,h3,p { margin:0 }
 .format-tag { color:var(--muted); font:12px ui-monospace,SFMono-Regular,Consolas,monospace; white-space:nowrap }
 .tool-panel { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)) }
 .input-panel,.output-panel { min-width:0; padding:24px }
-.output-panel { border-left:1px solid var(--line-soft); background:var(--surface-alt); border-radius:0 0 12px 0; display:flex; flex-direction:column; align-items:stretch }
+.output-panel { border-left:1px solid var(--line-soft); background:var(--surface-alt); display:flex; flex-direction:column; align-items:stretch }
 .panel-heading,.output-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; margin:0 0 16px }
 h2,h3 { font-size:18px; line-height:1.4; font-weight:600; letter-spacing:-.25px; overflow-wrap:anywhere }
 .field { margin-bottom:20px; min-width:0 }
@@ -126,15 +126,26 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:1 }
 .next-button { display:flex; align-items:center; justify-content:space-between; gap:36px; align-self:flex-start; border:1px solid var(--line); background:var(--surface); color:var(--ink); margin-top:24px }
 .derive-output>.field-help { margin-top:12px }
 .workspace-footnote { color:var(--muted); font-size:12px; line-height:1.6; margin:14px 0 24px }
-.technical-notes { border-top:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft) }
-.technical-notes summary { display:flex; align-items:center; justify-content:space-between; min-height:52px; cursor:pointer; color:var(--muted); font-size:13px; list-style:none }
-.technical-notes summary::-webkit-details-marker { display:none }
-.technical-notes summary:hover { color:var(--ink) }
-.technical-notes summary span { font-size:20px; font-weight:300 }
-.technical-notes[open] summary span { transform:rotate(45deg) }
-.notes-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:32px; padding:8px 0 24px }
-.notes-grid h3 { font-size:14px; margin-bottom:8px }
-.notes-grid p { color:var(--muted); font-size:13px; line-height:1.7 }
+.tool-help { border-top:1px solid var(--line); border-radius:0 0 12px 12px; background:var(--surface) }
+.tool-help summary,.storage-notes summary { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; cursor:pointer; list-style:none }
+.tool-help summary { padding:16px 24px; color:var(--ink); font-size:15px; font-weight:550 }
+.tool-help summary::-webkit-details-marker,.storage-notes summary::-webkit-details-marker { display:none }
+.tool-help summary:hover { background:var(--surface-alt); border-radius:0 0 12px 12px }
+.tool-help[open] summary { border-bottom:1px solid var(--line-soft); border-radius:0 }
+.tool-help summary span,.storage-notes summary span { font-size:22px; font-weight:300; color:var(--muted) }
+.tool-help[open] summary span,.storage-notes[open] summary span { transform:rotate(45deg) }
+.help-content { padding:24px }
+.help-intro { max-width:85ch; color:var(--ink); font-size:15px; line-height:1.7; margin-bottom:28px }
+.help-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:28px 32px }
+.help-grid section { min-width:0 }
+.help-grid h3 { font-size:15px; margin-bottom:8px }
+.help-grid p,.storage-content p { color:var(--muted); font-size:14px; line-height:1.75; overflow-wrap:anywhere }
+.help-grid strong { color:var(--ink); font-weight:600 }
+.help-references { display:flex; flex-wrap:wrap; gap:12px 24px; border-top:1px solid var(--line-soft); padding-top:20px; margin-top:28px; font-size:13px; color:var(--muted) }
+.help-references a { text-decoration:underline; text-underline-offset:3px }
+.storage-notes { border-top:1px solid var(--line-soft); border-bottom:1px solid var(--line-soft) }
+.storage-notes summary { color:var(--muted); font-size:13px }
+.storage-content { padding:0 0 20px; max-width:85ch }
 footer { display:flex; justify-content:flex-end; gap:20px; padding:20px 0 28px; color:var(--muted); font-size:12px; line-height:1.6 }
 footer>div { display:flex; gap:24px }
 .capability-warning { border:1px solid var(--error); color:var(--error); border-radius:8px; padding:16px; font-size:14px; margin-bottom:18px }
@@ -142,9 +153,9 @@ footer>div { display:flex; gap:24px }
 @media (max-width:900px) {
   .shell { padding-inline:24px }
   .tool-panel { grid-template-columns:minmax(0,1fr) }
-  .output-panel { border-left:0; border-top:1px solid var(--line-soft); border-radius:0 0 12px 12px }
+  .output-panel { border-left:0; border-top:1px solid var(--line-soft) }
   .result-text { min-height:240px }
-  .notes-grid { grid-template-columns:minmax(0,1fr); gap:20px }
+  .help-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px }
   .derive-output { padding-bottom:24px }
 }
 @media (max-width:600px) {
@@ -171,6 +182,10 @@ footer>div { display:flex; gap:24px }
   .form-actions .text-button { min-width:64px }
   .derive-heading { flex-wrap:wrap; gap:12px; padding:18px 16px }
   .derive-heading p { font-size:13px }
+  .tool-help summary { padding:16px; font-size:14px }
+  .help-content { padding:20px 16px }
+  .help-intro { font-size:14px; margin-bottom:24px }
+  .help-grid { grid-template-columns:minmax(0,1fr); gap:24px }
   .recipe-fields { grid-template-columns:minmax(0,1fr) 100px; gap:12px }
   .field-meta { font-size:11px }
   .workspace-footnote { font-size:12px; margin-bottom:20px }

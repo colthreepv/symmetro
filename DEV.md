@@ -84,3 +84,7 @@ available to screen readers; only actionable errors appear below the controls.
 Decrypt also checks the password after a short typing pause without displaying
 plaintext. Editing, clearing, or navigation invalidates pending checks so stale
 validation cannot change the current indicator or result.
+
+Each tool includes a collapsed explanation of its use cases, fixed parameters,
+and tradeoffs. Opening help does not change tools, clear fields, or affect a
+pending operation. External references load only when followed.
