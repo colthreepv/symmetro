@@ -119,6 +119,9 @@ test('mixed batches retain valid files, report rejected siblings, and allow sele
   await expect(inputs(page)).toHaveCount(4)
   await expect(page.locator('.entry-filename')).toHaveText(['good-first.txt', 'good-last.txt', 'good-last.txt'])
   await expect(page.locator('#decrypt-file-picker')).toHaveValue('')
+  await page.locator('#decrypt-file-picker').setInputFiles(file('good-last.txt'))
+  await expect(inputs(page)).toHaveCount(5)
+  await expect(page.locator('.entry-filename')).toHaveText(['good-first.txt', 'good-last.txt', 'good-last.txt', 'good-last.txt'])
 })
 
 for (const [name, bytes, error] of [
