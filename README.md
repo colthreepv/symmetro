@@ -15,7 +15,7 @@ Choose **Encrypt / Decrypt** or **Derive**. In the text tool, select an operatio
 
 - **Encrypt:** protect text with a password, then save the encrypted result and keep the password separately
 - **Decrypt:** recover your text with the same password. Existing Symmetro encrypted text remains supported
-- **Derive:** enter a secret and a password number to recreate a numbered password. The same secret, recipe version, and number always give the same result
+- **Derive:** enter a secret, password number, and length to recreate a numbered password. The same inputs and recipe version always give the same result
 
 In Decrypt, a small indicator checks whether the password matches while you type.
 Choose **Show Clear Text** to display the recovered text.
