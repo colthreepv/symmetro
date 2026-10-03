@@ -251,3 +251,17 @@ footer>div { display:flex; gap:24px }
   .primary-button[data-state=pending] .button-icon,.password-validation[data-state=pending] .validation-icon { animation:spin .8s linear infinite }
 }
 @keyframes spin { to { transform:rotate(360deg) } }
+
+/* Decrypt keeps each message and its feedback together without widening mobile layouts. */
+.accordion-list { display:grid; gap:10px; margin-bottom:20px; min-width:0 }
+.accordion-list details { min-width:0; border:1px solid var(--line); border-radius:8px; overflow:hidden }
+.accordion-list summary { display:flex; align-items:center; gap:10px; padding:12px; cursor:pointer; font-size:13px; font-weight:600 }
+.accordion-list summary::before { content:'›'; font-size:18px; line-height:1 }
+.accordion-list details[open] > summary::before { transform:rotate(90deg) }
+.accordion-list summary .field-meta { margin-left:auto; font-size:11px; font-weight:400 }
+.accordion-list summary .password-validation { flex-shrink:0 }
+.accordion-list .accordion-body { padding:0 12px 12px; display:grid; gap:10px }
+.accordion-list .accordion-body label { font-size:12px; color:var(--muted) }
+.accordion-list .copy-button,.accordion-list .remove-input { justify-self:end }
+.accordion-list textarea { width:100%; min-width:0 }
+.version { align-self:center; margin-top:8px; margin-bottom:0 }

@@ -50,15 +50,15 @@
 
         <section id="panel-decrypt" class="tool-panel" role="tabpanel" aria-labelledby="tab-decrypt" hidden>
           <form id="decrypt-form" class="input-panel">
-            <div class="panel-heading"><h2>Input</h2></div>
-            <div class="field text-field"><label for="decrypt-text">Encrypted text</label><textarea id="decrypt-text" class="mono" rows="10" spellcheck="false" autocomplete="off"></textarea></div>
-            <div class="field"><label for="decrypt-secret" class="password-label">Password <span id="decrypt-validation" class="password-validation" role="status" aria-live="polite" data-state="idle"><span class="validation-icon" aria-hidden="true"></span><span class="sr-only"></span></span></label><div class="secret-field"><input type="password" id="decrypt-secret" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="decrypt-secret" aria-label="Show password" aria-pressed="false">Show</button></div></div>
+            <div class="panel-heading"><h2>Input</h2><button type="button" id="add-decrypt-input" class="quiet-button">Add input <span aria-hidden="true">+</span></button></div>
+            <div id="decrypt-inputs" class="accordion-list"></div>
+            <div class="field"><label for="decrypt-secret">Shared password</label><div class="secret-field"><input type="password" id="decrypt-secret" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="decrypt-secret" aria-label="Show password" aria-pressed="false">Show</button></div></div>
             <div class="form-actions"><button type="submit" id="decrypt-button" class="primary-button"><span class="button-label">Show Clear Text</span><span class="button-icon" aria-hidden="true">→</span></button><button type="button" data-clear="decrypt" class="text-button">Clear</button></div>
             <p id="decrypt-status" class="status" role="status" aria-live="polite"></p>
           </form>
           <div class="output-panel">
-            <div class="output-heading"><h3>Decrypted text</h3><button type="button" class="copy-button" data-copy="decrypted-text" disabled>Copy</button></div>
-            <textarea id="decrypted-text" class="result-text" rows="10" readonly aria-label="Decrypted text" placeholder="No result yet" spellcheck="false"></textarea>
+            <div class="output-heading"><h3>Decrypted text</h3></div>
+            <div id="decrypt-outputs" class="accordion-list"></div>
           </div>
         </section>
         <details class="tool-help" id="encryption-help">

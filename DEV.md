@@ -173,3 +173,20 @@ cancel derivation. Pending results use the latest length choice. Editing inputs,
 clearing, and navigation discard the full result; clearing and navigation reset
 length to Max. Copy feedback from a previous length cannot label a newer result
 as copied. The account mapping must retain both the number and chosen length.
+
+## Multiple decryption inputs
+
+Decrypt supports up to 20 numbered ciphertext inputs with one shared password.
+Add input opens the new accordion and collapses the others. Header counts use
+Unicode code points. Password typing pauses trigger serial, debounced checks
+without revealing plaintext; each nonempty input gets its own result. Inputs
+using other passwords are expected and do not prevent successful ones from
+opening with Show Clear Text. Empty inputs remain neutral. Only successful
+results are rendered after this explicit action, with one result open at a time.
+
+Trying a password collapses the input accordions. Editing ciphertext leaves its
+accordion open. Editing, removing, clearing, and navigation invalidate running
+work and discard revealed results. The most recent validation request replaces
+obsolete queued work, and stale completions cannot reveal or relabel results.
+Neither ciphertext nor plaintext is persisted or transmitted. Encryption and
+the frozen derivation recipe are unchanged.

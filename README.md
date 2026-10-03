@@ -64,3 +64,13 @@ software is safe. Verify downloads before using them for sensitive information.
 ## Development
 
 For setup, builds, tests, and contribution details, see [DEV.md](DEV.md).
+
+### Decrypt several messages
+
+Choose **Add input** to keep multiple encrypted messages in the same workspace
+(up to 20). Enter one shared password: each input shows whether it matches,
+while empty inputs stay neutral. Mixed-password collections are supported.
+Choose **Show Clear Text** to reveal only the messages that match. Input and
+result accordions retain their matching numbers; only one in each list is open
+at a time. Editing or removing an input hides the results until you reveal them
+again. Nothing is uploaded or saved.

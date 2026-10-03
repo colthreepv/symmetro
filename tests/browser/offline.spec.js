@@ -1,10 +1,44 @@
+import { Buffer } from 'node:buffer'
+import { webcrypto } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
+import { encryptText } from '../../src/crypto.js'
 
 const artifactUrl = new URL('../../dist/index.html', import.meta.url)
 const fixture = JSON.parse(await readFile(new URL('../fixtures/legacy-v2.json', import.meta.url), 'utf8'))
 const { version } = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'))
 const tab = (page, name) => page.getByRole('tab', { name, exact: true })
+
+// Browser crypto uses window.crypto; these payloads contain synthetic data only.
+globalThis.window = { crypto: webcrypto }
+const multiFixtures = await Promise.all([
+  { text: 'First synthetic message: café 🔐\nSecond line.', password: fixture.password },
+  { text: 'A different password protects this synthetic message.', password: 'another synthetic password' },
+  { text: `Unicode: A🔐e\u0301\n${'UnbrokenText🔐'.repeat(100)}`, password: fixture.password },
+].map(async ({ text, password }) => ({ text, password, payload: Buffer.from(await encryptText(text, password)).toString('base64') })))
+
+async function fillCipher(page, index, text) {
+  const input = page.locator('#decrypt-inputs > details').nth(index)
+  if (!await input.evaluate(details => details.open))
+    await input.locator('summary').click()
+  await input.locator('textarea').fill(text)
+}
+
+async function addCipher(page, text = '') {
+  await page.locator('#add-decrypt-input').click()
+  const input = page.locator('#decrypt-inputs > details').last()
+  await expect(input).toHaveAttribute('open', '')
+  await expect(input.locator('textarea')).toBeFocused()
+  if (text)
+    await input.locator('textarea').fill(text)
+}
+
+async function expectCipherStates(page, states) {
+  const badges = page.locator('#decrypt-inputs .password-validation')
+  await expect(badges).toHaveCount(states.length)
+  for (const [index, state] of states.entries())
+    await expect(badges.nth(index)).toHaveAttribute('data-state', state)
+}
 
 async function expectMode(page, mode) {
   const textSelected = mode !== 'derive'
@@ -200,7 +234,7 @@ test('invalid input is recoverable and editing clears old results', async ({ pag
   await page.locator('#decrypt-button').click()
   await expect(page.locator('#decrypt-status')).toContainText('Could not decrypt')
   await expect(page.locator('#decrypted-text')).toHaveValue('')
-  await page.locator('#decrypt-text').fill(fixture.payload)
+  await fillCipher(page, 0, fixture.payload)
   await page.locator('#decrypt-secret').fill(fixture.password)
   await page.locator('#decrypt-button').click()
   await expect(page.locator('#decrypted-text')).toHaveValue(fixture.text)
@@ -489,7 +523,7 @@ test('live password validation authenticates edits without revealing plaintext',
   await expect(page.locator('#decrypt-button')).toHaveAttribute('data-state', 'idle')
   await page.locator('#decrypt-button').click()
   await expect(page.locator('#decrypted-text')).toHaveValue(fixture.text)
-  await page.locator('#decrypt-text').fill('broken ciphertext')
+  await fillCipher(page, 0, 'broken ciphertext')
   await expect(page.locator('#decrypted-text')).toHaveValue('')
   await expect(page.locator('#decrypt-button')).toHaveAttribute('data-state', 'idle')
   await expect(validation).toHaveAttribute('data-state', 'invalid')
@@ -498,13 +532,131 @@ test('live password validation authenticates edits without revealing plaintext',
   await expect(page.locator('#decrypt-button .button-icon')).toHaveText('!')
   await expect(page.locator('#decrypt-status')).toHaveAttribute('data-error', 'true')
   await expect(page.locator('#decrypt-status')).toBeVisible()
-  await page.locator('#decrypt-text').fill('')
+  await fillCipher(page, 0, '')
   await expect(validation).toHaveAttribute('data-state', 'idle')
   await expect(validation.locator('.sr-only')).toHaveText('')
   await expect(page.locator('#decrypt-secret')).not.toHaveAttribute('aria-invalid')
   await page.locator('[data-clear="decrypt"]').click()
   await expect(validation).toHaveAttribute('data-state', 'idle')
   await expect(page.locator('#decrypt-button')).toHaveAttribute('data-state', 'idle')
+})
+
+test('multiple encrypted inputs authenticate independently and only matching messages are revealed', async ({ page, context }) => {
+  await context.setOffline(true)
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (text) => {
+      window.copiedText = text
+    } } })
+  })
+  await page.goto(`${artifactUrl.href}#decrypt`)
+  await fillCipher(page, 0, multiFixtures[0].payload)
+  await addCipher(page, multiFixtures[1].payload)
+  await addCipher(page, multiFixtures[2].payload)
+  await addCipher(page)
+  await page.locator('#decrypt-secret').fill(fixture.password)
+  await expectCipherStates(page, ['valid', 'invalid', 'valid', 'idle'])
+  await expect(page.locator('#decrypt-inputs > details[open]')).toHaveCount(0)
+  await expect(page.locator('#decrypt-secret')).toHaveAttribute('aria-invalid', 'false')
+  await expect(page.locator('#decrypt-outputs > details')).toHaveCount(0)
+  await expect(page.locator('#decrypted-text')).toHaveValue('')
+  await expect(page.locator('#decrypt-outputs [data-copy]')).toBeDisabled()
+  await expect(page.locator('#decrypt-button')).toHaveAttribute('data-state', 'idle')
+
+  await page.locator('#decrypt-button').click()
+  const outputs = page.locator('#decrypt-outputs > details')
+  await expect(outputs).toHaveCount(2)
+  await expect(page.locator('#decrypt-status')).toHaveText('Decrypted 2 of 3 inputs. Unmatched inputs stay hidden.')
+  await expect(outputs.nth(0).locator('summary')).toHaveText(`Input 1${Array.from(multiFixtures[0].text).length.toLocaleString('en')} characters`)
+  await expect(outputs.nth(1).locator('summary')).toHaveText(`Input 3${Array.from(multiFixtures[2].text).length.toLocaleString('en')} characters`)
+  await expect(outputs.nth(0).locator('textarea')).toHaveValue(multiFixtures[0].text)
+  await expect(outputs.nth(1).locator('textarea')).toHaveValue(multiFixtures[2].text)
+  expect(await page.locator('#decrypt-outputs textarea').evaluateAll(items => items.map(item => item.value))).not.toContain(multiFixtures[1].text)
+  await expect(outputs.nth(0)).toHaveAttribute('open', '')
+  await expect(outputs.nth(1)).not.toHaveAttribute('open')
+  for (const [index, message] of [[0, multiFixtures[0]], [1, multiFixtures[2]]]) {
+    if (index)
+      await outputs.nth(index).locator('summary').click()
+    await outputs.nth(index).getByRole('button', { name: 'Copy', exact: true }).click()
+    await expect(outputs.nth(index).getByRole('button', { name: 'Copied.', exact: true })).toBeEnabled()
+    expect(await page.evaluate(() => window.copiedText)).toBe(message.text)
+  }
+
+  await page.locator('#decrypt-secret').fill(multiFixtures[1].password)
+  await expect(page.locator('#decrypt-outputs > details')).toHaveCount(0)
+  await expect(page.locator('#decrypted-text')).toHaveValue('')
+  await expectCipherStates(page, ['invalid', 'valid', 'invalid', 'idle'])
+  await page.locator('#decrypt-button').click()
+  await expect(outputs).toHaveCount(1)
+  await expect(outputs.locator('summary')).toContainText('Input 2')
+  await expect(outputs.locator('textarea')).toHaveValue(multiFixtures[1].text)
+  await expect(page.locator('#decrypt-status')).toHaveText('Decrypted 1 of 3 inputs. Unmatched inputs stay hidden.')
+})
+
+test('empty inputs stay neutral and Unicode counts update without collapsing an edited input', async ({ page }) => {
+  await page.goto(`${artifactUrl.href}#decrypt`)
+  const inputs = page.locator('#decrypt-inputs > details')
+  await page.locator('#decrypt-secret').fill(fixture.password)
+  await expectCipherStates(page, ['idle'])
+  await expect(page.locator('#decrypt-button')).toBeDisabled()
+  await expect(inputs.first()).toHaveAttribute('open', '')
+  await fillCipher(page, 0, 'A🔐e\u0301\n')
+  await expect(inputs.first().locator('.entry-count')).toHaveText('5 characters')
+  await expectCipherStates(page, ['invalid'])
+  await expect(inputs.first()).toHaveAttribute('open', '')
+  await fillCipher(page, 0, '')
+  await expect(inputs.first().locator('.entry-count')).toHaveText('0 characters')
+  await addCipher(page)
+  await expectCipherStates(page, ['idle', 'idle'])
+  await expect(page.locator('#decrypt-secret')).not.toHaveAttribute('aria-invalid')
+  await expect(page.locator('#decrypt-button')).toBeDisabled()
+  await expect(page.locator('#decrypt-outputs > details')).toHaveCount(0)
+})
+
+test('keyboard accordions keep one input and one output open independently', async ({ page }) => {
+  await page.goto(`${artifactUrl.href}#decrypt`)
+  const inputs = page.locator('#decrypt-inputs > details')
+  await fillCipher(page, 0, fixture.payload)
+  await addCipher(page, multiFixtures[0].payload)
+  await expect(inputs.first()).not.toHaveAttribute('open')
+  await expect(inputs.last()).toHaveAttribute('open', '')
+  await inputs.first().locator('summary').focus()
+  await page.keyboard.press('Space')
+  await expect(inputs.first()).toHaveAttribute('open', '')
+  await expect(inputs.last()).not.toHaveAttribute('open')
+  await page.keyboard.press('Enter')
+  await expect(inputs.first()).not.toHaveAttribute('open')
+  await page.keyboard.press('Enter')
+  await expect(inputs.first()).toHaveAttribute('open', '')
+  await page.locator('#decrypt-secret').fill(fixture.password)
+  await expectCipherStates(page, ['valid', 'valid'])
+  await expect(page.locator('#decrypt-inputs > details[open]')).toHaveCount(0)
+  await fillCipher(page, 0, `${fixture.payload}\n`)
+  await expectCipherStates(page, ['valid', 'valid'])
+  await expect(inputs.first()).toHaveAttribute('open', '')
+  await addCipher(page)
+  await expect(inputs.first()).not.toHaveAttribute('open')
+  await expect(inputs.last()).toHaveAttribute('open', '')
+  await expectCipherStates(page, ['valid', 'valid', 'idle'])
+  await expect(inputs.last()).toHaveAttribute('open', '')
+  await page.locator('#decrypt-button').click()
+  const outputs = page.locator('#decrypt-outputs > details')
+  await expect(outputs).toHaveCount(2)
+  await expect(page.locator('#decrypt-inputs > details[open]')).toHaveCount(0)
+  await expect(outputs.first()).toHaveAttribute('open', '')
+  await outputs.last().locator('summary').focus()
+  await page.keyboard.press('Enter')
+  await expect(outputs.last()).toHaveAttribute('open', '')
+  await expect(outputs.first()).not.toHaveAttribute('open')
+  await outputs.first().locator('summary').focus()
+  await page.keyboard.press('Space')
+  await expect(outputs.first()).toHaveAttribute('open', '')
+  await expect(outputs.last()).not.toHaveAttribute('open')
+  await inputs.first().locator('summary').focus()
+  await page.keyboard.press('Enter')
+  await expect(inputs.first()).toHaveAttribute('open', '')
+  await expect(outputs.first()).toHaveAttribute('open', '')
+  await expect(page.locator('#decrypt-inputs > details[open]')).toHaveCount(1)
+  await expect(page.locator('#decrypt-outputs > details[open]')).toHaveCount(1)
 })
 
 async function gateDecryption(page) {
@@ -523,6 +675,78 @@ async function gateDecryption(page) {
     }
   })
 }
+
+for (const operation of ['live check', 'explicit reveal']) {
+  test(`removing an input cancels its delayed ${operation} and renumbers the surviving input`, async ({ page }) => {
+    await gateDecryption(page)
+    await page.goto(`${artifactUrl.href}#decrypt`)
+    await fillCipher(page, 0, fixture.payload)
+    await addCipher(page, multiFixtures[0].payload)
+    await page.locator('#decrypt-secret').fill(fixture.password)
+    if (operation === 'explicit reveal')
+      await page.locator('#decrypt-button').click()
+    await expect.poll(() => page.evaluate(() => window.decryptReleases.length)).toBe(1)
+    const removed = page.locator('#decrypt-inputs > details').first()
+    await removed.locator('summary').click()
+    await removed.getByRole('button', { name: 'Remove input' }).click()
+    const survivor = page.locator('#decrypt-inputs > details')
+    await expect(survivor).toHaveCount(1)
+    await expect(survivor.locator('.entry-title')).toHaveText('Input 1')
+    await expect(survivor.locator('textarea')).toHaveValue(multiFixtures[0].payload)
+    await expect(survivor.locator('textarea')).toBeFocused()
+    await expect(page.locator('#decrypt-outputs > details')).toHaveCount(0)
+    await page.evaluate(() => window.decryptReleases[0]())
+    await expect.poll(() => page.evaluate(() => window.decryptReleases.length)).toBe(2)
+    await page.evaluate(() => window.decryptReleases[1]())
+    await expect.poll(() => page.evaluate(() => window.decryptFinished)).toBe(2)
+    await expectCipherStates(page, ['valid'])
+    await expect(page.locator('#decrypt-outputs > details')).toHaveCount(0)
+    await expect(page.locator('#decrypted-text')).toHaveValue('')
+    await expect(page.locator('#decrypt-button')).toHaveAttribute('data-state', 'idle')
+    await page.locator('#decrypt-button').click()
+    await expect.poll(() => page.evaluate(() => window.decryptReleases.length)).toBe(3)
+    await page.evaluate(() => window.decryptReleases[2]())
+    await expect(page.locator('#decrypt-outputs > details')).toHaveCount(1)
+    await expect(page.locator('#decrypted-text')).toHaveValue(multiFixtures[0].text)
+    await expect(page.locator('#decrypt-outputs summary')).toContainText('Input 1')
+    await survivor.locator('summary').click()
+    await survivor.getByRole('button', { name: 'Remove input' }).click()
+    await expect(survivor).toHaveCount(1)
+    await expect(survivor.locator('textarea')).toHaveValue('')
+    await expect(survivor.locator('textarea')).toBeFocused()
+    await expectCipherStates(page, ['idle'])
+    await expect(page.locator('#decrypted-text')).toHaveValue('')
+    await expect(page.locator('#decrypt-button')).toBeDisabled()
+  })
+}
+
+test('editing after a partial multi-input reveal wipes results and ignores delayed plaintext', async ({ page }) => {
+  await gateDecryption(page)
+  await page.goto(`${artifactUrl.href}#decrypt`)
+  await fillCipher(page, 0, fixture.payload)
+  await addCipher(page, multiFixtures[0].payload)
+  await page.locator('#decrypt-secret').fill(fixture.password)
+  await page.locator('#decrypt-button').click()
+  await expect.poll(() => page.evaluate(() => window.decryptReleases.length)).toBe(1)
+  await page.evaluate(() => window.decryptReleases[0]())
+  await expect(page.locator('#decrypted-text')).toHaveValue(fixture.text)
+  await expect.poll(() => page.evaluate(() => window.decryptReleases.length)).toBe(2)
+  await fillCipher(page, 0, 'invalid replacement')
+  await expect(page.locator('#decrypt-outputs > details')).toHaveCount(0)
+  await page.evaluate(() => window.decryptReleases[1]())
+  await expect.poll(() => page.evaluate(() => window.decryptReleases.length)).toBe(3)
+  await page.evaluate(() => window.decryptReleases[2]())
+  await expect.poll(() => page.evaluate(() => window.decryptFinished)).toBe(3)
+  await expectCipherStates(page, ['invalid', 'valid'])
+  await expect(page.locator('#decrypted-text')).toHaveValue('')
+  await expect(page.locator('#decrypt-outputs > details')).toHaveCount(0)
+  await page.locator('#decrypt-button').click()
+  await expect.poll(() => page.evaluate(() => window.decryptReleases.length)).toBe(4)
+  await page.evaluate(() => window.decryptReleases[3]())
+  await expect(page.locator('#decrypt-outputs > details')).toHaveCount(1)
+  await expect(page.locator('#decrypted-text')).toHaveValue(multiFixtures[0].text)
+  await expect(page.locator('#decrypt-outputs summary')).toContainText('Input 2')
+})
 
 for (const action of ['edit', 'clear', 'navigate', 'submit']) {
   test(`a delayed live check cannot overwrite ${action} state`, async ({ page }) => {
@@ -632,6 +856,59 @@ test('readonly output has no pointer outline and retains a keyboard focus indica
   expect(Number.parseFloat(keyboard.width)).toBeGreaterThan(0)
 })
 
+test('dynamically revealed plaintext retains pointer and keyboard focus behavior', async ({ page }) => {
+  await page.goto(`${artifactUrl.href}#decrypt`)
+  await fillCipher(page, 0, fixture.payload)
+  await page.locator('#decrypt-secret').fill(fixture.password)
+  await page.locator('#decrypt-button').click()
+  const output = page.locator('#decrypted-text')
+  await expect(output).toHaveValue(fixture.text)
+  await output.click()
+  await expect(output).toHaveAttribute('data-pointer-focus', 'true')
+  expect(await output.evaluate(input => getComputedStyle(input).outlineStyle)).toBe('none')
+  await page.locator('[data-copy="decrypted-text"]').focus()
+  await page.keyboard.press('Tab')
+  await expect(output).toBeFocused()
+  await expect(output).not.toHaveAttribute('data-pointer-focus')
+  expect(await output.evaluate(input => getComputedStyle(input).outlineStyle)).not.toBe('none')
+})
+
+for (const width of [1440, 390, 320]) {
+  test(`multiple decrypt inputs and results fit ${width}px dark and light layouts`, async ({ page, context }, testInfo) => {
+    await context.setOffline(true)
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 })
+    await page.goto(`${artifactUrl.href}#decrypt`)
+    for (const [index, message] of multiFixtures.entries()) {
+      if (index)
+        await addCipher(page, message.payload)
+      else
+        await fillCipher(page, index, message.payload)
+    }
+    await addCipher(page)
+    await page.locator('#decrypt-secret').fill(fixture.password)
+    await expectCipherStates(page, ['valid', 'invalid', 'valid', 'idle'])
+    await expect(page.locator('#decrypt-outputs > details')).toHaveCount(0)
+    await page.locator('#decrypt-button').click()
+    await expect(page.locator('#decrypt-outputs > details')).toHaveCount(2)
+    await page.locator('#decrypt-outputs > details').last().locator('summary').focus()
+    await page.keyboard.press('Enter')
+    await expect(page.locator('#decrypt-outputs > details').last()).toHaveAttribute('open', '')
+    for (const theme of ['dark', 'light']) {
+      if (await page.locator('html').getAttribute('data-theme') !== theme)
+        await page.locator('#theme-toggle').click()
+      expect(await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) <= innerWidth)).toBe(true)
+      for (const summary of await page.locator('#panel-decrypt summary').all()) {
+        const bounds = await summary.boundingBox()
+        expect(bounds.x).toBeGreaterThanOrEqual(0)
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width)
+      }
+      const screenshot = `test-results/screenshots/symmetro-multiple-decrypt-${width}-${theme}.png`
+      await page.screenshot({ path: screenshot, fullPage: true, animations: 'disabled' })
+      await testInfo.attach(`multiple-decrypt-${width}-${theme}`, { path: screenshot, contentType: 'image/png' })
+    }
+  })
+}
+
 test('tool headers stay aligned and recipe v1 is fixed', async ({ page, context }) => {
   await context.setOffline(true)
   for (const width of [1440, 1188, 900, 601, 390, 320]) {
@@ -639,9 +916,17 @@ test('tool headers stay aligned and recipe v1 is fixed', async ({ page, context 
     await page.goto(`${artifactUrl.href}#encrypt`)
     await expect(page.getByLabel('Clear text', { exact: true })).toBeVisible()
     const toolbar = await page.locator('.toolbar').boundingBox()
-    const version = await page.locator('#version-text').boundingBox()
-    const mark = await page.locator('.brand-mark').boundingBox()
-    expect(Math.abs(version.y + version.height - (mark.y + mark.height - 2))).toBeLessThan(1)
+    const textAlignment = await page.locator('.brand').evaluate((brand) => {
+      const textBottom = (element) => {
+        const range = document.createRange()
+        range.selectNodeContents(element)
+        return range.getBoundingClientRect().bottom
+      }
+      return textBottom(brand.querySelector('#version-text')) - textBottom(brand.querySelector(':scope > span:not(.brand-mark):not(.version)'))
+    })
+    // Align the smaller version optically to the brand word, not the logo box.
+    expect(Math.abs(textAlignment)).toBeLessThanOrEqual(3)
+    expect(textAlignment).toBeLessThanOrEqual(1)
     await tab(page, 'Decrypt').click()
     await expect(page.locator('#decrypt-button')).toHaveAccessibleName('Show Clear Text')
     await tab(page, 'Derive').click()
