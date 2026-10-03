@@ -24,6 +24,7 @@ export class DecryptWorkspace {
   private flight: Promise<void> | undefined
   private queued: number | undefined
   private busy = false
+  private dragDepth = 0
   private composing = new Set<EventTarget>()
   private secret = get<HTMLInputElement>('decrypt-secret')
   constructor(private hooks: Hooks) {
@@ -50,6 +51,7 @@ export class DecryptWorkspace {
   reset(): void {
     this.invalidate()
     this.composing.clear()
+    this.dragDepth = 0
     this.entries = []
     this.nextId = 0
     get('decrypt-inputs').replaceChildren()
@@ -223,12 +225,11 @@ export class DecryptWorkspace {
       picker.value = '' // Selecting the same file again must still dispatch change.
       if (files.length) void this.importFiles(files)
     })
-    let depth = 0
     const isFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files')
     zone.addEventListener('dragenter', event => {
       if (!isFiles(event)) return
       event.preventDefault()
-      depth++
+      this.dragDepth++
       zone.dataset.dragging = 'true'
     })
     zone.addEventListener('dragover', event => {
@@ -239,13 +240,13 @@ export class DecryptWorkspace {
     })
     zone.addEventListener('dragleave', event => {
       if (!isFiles(event)) return
-      depth = Math.max(0, depth - 1)
-      if (!depth) zone.dataset.dragging = 'false'
+      this.dragDepth = Math.max(0, this.dragDepth - 1)
+      if (!this.dragDepth) zone.dataset.dragging = 'false'
     })
     zone.addEventListener('drop', event => {
       if (!isFiles(event)) return
       event.preventDefault()
-      depth = 0
+      this.dragDepth = 0
       zone.dataset.dragging = 'false'
       const files = Array.from(event.dataTransfer?.files ?? [])
       if (files.length) void this.importFiles(files)
