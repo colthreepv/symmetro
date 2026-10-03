@@ -17,10 +17,18 @@ source HTML or rely only on the development server.
 
 ## Checks
 
-- `pnpm check` runs lint, synthetic crypto regression tests, the build, and static checks that the result is self-contained
+- `pnpm check` runs lint, strict TypeScript checks, synthetic crypto/derivation tests, the build, and static standalone-artifact validation
+- `pnpm typecheck` runs TypeScript independently; `pnpm test` runs the Node unit tests
 - `pnpm exec playwright install chromium` installs the browser used by the tests
-- `pnpm test:browser` opens the built HTML through `file://` with browser networking disabled, exercises encryption/decryption and a legacy fixture, and checks for separate-resource requests
+- `pnpm test:browser` opens the built HTML through `file://` with browser networking disabled and covers encryption/decryption, legacy ciphertext, independent derivation vectors, cancellation, navigation, input errors, clipboard fallback, and responsive layout
 - To use an existing Chromium installation, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable path
+
+The browser suite captures populated Encrypt, Decrypt, and Derive screenshots in
+dark and light themes at 320, 390, and 1920 pixels, and checks for horizontal
+overflow and the 1600-pixel workspace cap. It also covers the nested tool/mode
+navigation and theme changes without losing inputs or results. CI uploads images as
+`symmetro-ui-screenshots`; inspect them as well as the test results. Use no real
+secrets in tests or screenshots.
 
 ## Continuous integration
 
@@ -39,3 +47,57 @@ fresh salt/IV generation, wrong passwords, and tampered or truncated payloads.
 
 Use synthetic inputs only. These checks are regression safeguards, not a security
 audit or a guarantee of password strength.
+
+## Numbered password derivation
+
+[DERIVATION_V1.md](DERIVATION_V1.md) specifies the frozen byte-level recipe,
+security tradeoffs, API, independent reference vectors, and verification commands.
+Recipe versions are separate from application and encrypted-payload versions.
+
+Version 1 uses Argon2id (64 MiB, three iterations, four lanes) and HKDF-SHA-256,
+with fixed public salts. Identical inputs produce identical passwords across
+users, and a known output permits offline secret guesses. One expensive root-key
+guess can be reused across password numbers. The output is 43-character,
+unpadded base64url; it does not promise compatibility with every password policy.
+
+The UI accepts single-line secret text and rejects multiline paste/drop. The
+underlying API preserves exact UTF-8, including newlines; it never trims or
+normalizes secret text. Password numbers are canonical decimal strings from 1
+through 18446744073709551615 and are handled with `BigInt`, not JavaScript
+floating-point numbers.
+
+All runtime dependencies, including the WASM implementation, are bundled into
+the HTML. Derivation runs in a disposable inline worker. Editing, clearing, or
+switching tools terminates the worker and invalidates stale results. No secrets
+or mappings are persisted in local/session storage. Copying is explicit, with a
+selection fallback. Clearing cannot guarantee erasure of browser memory or
+clipboard history.
+
+The interface uses local system fonts, keyboard-accessible tool and mode tabs,
+and explicit pending/error states. Encrypt/Decrypt share one workspace; Derive
+has its own view. Dark mode is the default on every load, with a session-only
+light-mode toggle. There are no external runtime resources, telemetry, or
+backend. Documentation links navigate externally only when clicked.
+
+Action buttons show pending, success, and error icons. Routine feedback remains
+available to screen readers; only actionable errors appear below the controls.
+Decrypt also checks the password after a short typing pause without displaying
+clear text. The explicit Show Clear Text action displays it. Editing, clearing,
+or navigation invalidates pending checks so stale validation cannot change the
+current indicator or result.
+
+Each tool includes a collapsed explanation of its use cases, fixed parameters,
+and tradeoffs. Opening help does not change tools, clear fields, or affect a
+pending operation. External references load only when followed.
+The explanations define technical terms for readers without cryptography
+knowledge. The single-option recipe selector is disabled; v1 remains the fixed
+calculation. Tool headers have matching heights at desktop and mobile widths,
+and the release version sits at the bottom of the brand row.
+
+Derive's Length control offers 16, 24, and Max (43), with Max selected initially.
+The worker still produces the exact full v1 result. The UI keeps it in memory
+and displays/copies its first N characters; changing length does not rerun or
+cancel derivation. Pending results use the latest length choice. Editing inputs,
+clearing, and navigation discard the full result; clearing and navigation reset
+length to Max. Copy feedback from a previous length cannot label a newer result
+as copied. The account mapping must retain both the number and chosen length.

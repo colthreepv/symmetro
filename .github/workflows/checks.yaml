@@ -47,3 +47,11 @@ jobs:
           name: symmetro-standalone-html
           path: dist/index.html
           if-no-files-found: error
+
+      - name: Upload UI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: symmetro-ui-screenshots
+          path: test-results/screenshots/*.png
+          if-no-files-found: ignore

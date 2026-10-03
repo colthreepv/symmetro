@@ -15,8 +15,13 @@ for (const resource of [
   '<img srcset="data:image/gif;base64,R0lGODlhAQABAAAAACw= 1x, separate.png 2x">',
   '<style>@import "theme.css";</style>',
   '<style>@font-face{src:url(font.woff2)}</style>',
+  '<div style="background:url(remote.png)"></div>',
 ]) {
   test(`rejects non-embedded resources: ${resource}`, () => {
     assert.throws(() => checkArtifactHtml(document.replace('</body>', `${resource}</body>`)))
   })
 }
+
+test('allows embedded Blob worker JavaScript without treating createObjectURL as CSS', () => {
+  checkArtifactHtml(document.replace('console.log("synthetic")', 'const embedded = URL.createObjectURL(blob)'))
+})

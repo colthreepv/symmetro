@@ -1,0 +1,93 @@
+[
+  {
+    "label": "ASCII / index 1",
+    "version": 1,
+    "secret": "synthetic secret for automated tests only",
+    "index": "1",
+    "expected": "ZVnlmRV6DqQhl-FMxWvngooMUIJGQ7cp1VKPYRNNrn4"
+  },
+  {
+    "label": "ASCII / index 2",
+    "version": 1,
+    "secret": "synthetic secret for automated tests only",
+    "index": "2",
+    "expected": "goX7TMP0CG_G7ePQJ_WOC2oq6UdyZBMEubVfqXeeMBk"
+  },
+  {
+    "label": "ASCII / index 3",
+    "version": 1,
+    "secret": "synthetic secret for automated tests only",
+    "index": "3",
+    "expected": "AQ3ahAlEvfXKqNLL8AUDgvyr0bwfLsoM5odYo6h12HE"
+  },
+  {
+    "label": "Beyond JS safe integer",
+    "version": 1,
+    "secret": "synthetic secret for automated tests only",
+    "index": "9007199254740993",
+    "expected": "PI1-kxzd10cegHD584B3egg7-7AlrpWpKZ_SKwaR0uw"
+  },
+  {
+    "label": "Maximum u64 index",
+    "version": 1,
+    "secret": "synthetic secret for automated tests only",
+    "index": "18446744073709551615",
+    "expected": "kgm3g1paklRPzTZbZmozNn6I0nM2jpZxPyPRZj2mXVo"
+  },
+  {
+    "label": "Composed Unicode",
+    "version": 1,
+    "secret": "caf\u00e9",
+    "index": "1",
+    "expected": "-qGUeH4zEnN1WUl9DkMlU8N5Oyhdcd3xv9qY8UgGJgY"
+  },
+  {
+    "label": "Decomposed Unicode",
+    "version": 1,
+    "secret": "cafe\u0301",
+    "index": "1",
+    "expected": "PCtl5828BUrUhXo966CkCgUzZiDnAxdi-gaUQpcVELQ"
+  },
+  {
+    "label": "Leading and trailing whitespace",
+    "version": 1,
+    "secret": " synthetic secret ",
+    "index": "1",
+    "expected": "KGiJc0jOYof35XKXW3PUcZ7qimvtNZKJAuhE3Aaef9Q"
+  },
+  {
+    "label": "Whitespace preserved baseline",
+    "version": 1,
+    "secret": "synthetic secret",
+    "index": "1",
+    "expected": "Rw9OnU-BKLKkQzQ-XRAqGtQliHkmzkJFo-VgV8ZvIXQ"
+  },
+  {
+    "label": "LF newline",
+    "version": 1,
+    "secret": "synthetic\nsecret",
+    "index": "1",
+    "expected": "Z4658oftkLHM4CFyVIahf78L63BqPz9cEHvFT7sSf8M"
+  },
+  {
+    "label": "CRLF newline",
+    "version": 1,
+    "secret": "synthetic\r\nsecret",
+    "index": "1",
+    "expected": "A1FKaVVYjBzB58V3qEi6UbzUrgUBv2XK4B4uE64PTz8"
+  },
+  {
+    "label": "Unicode supplementary character",
+    "version": 1,
+    "secret": "synthetic \ud83d\udd11 secret",
+    "index": "1",
+    "expected": "F7G2rDZllKJXG3lsUcVjmzHPJ8YZMirQjyymh9KMTVg"
+  },
+  {
+    "label": "Embedded NUL",
+    "version": 1,
+    "secret": "synthetic\u0000secret",
+    "index": "1",
+    "expected": "OqXAt8RNSCtdzFYc2g0QUtXpmzH62UgNBkCbO1MwDNI"
+  }
+]
