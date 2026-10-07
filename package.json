@@ -1,7 +1,7 @@
 {
   "name": "symmetro",
   "type": "module",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "packageManager": "npm@11.17.0",
   "description": "",
   "license": "Unlicense",

@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.1.0 — 2026-10-07
+
+### Added
+
+- Add up to 20 encrypted text inputs in Decrypt, checked with one shared password;
+  only matching messages are revealed when requested.
+- Import ciphertext files locally by choosing or dropping them. Support strict UTF-8
+  and BOM-marked UTF-16, with per-file and workspace size limits and validation.
+
 ## 3.0.0 — 2026-10-03
 
 ### Added
