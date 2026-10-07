@@ -193,8 +193,11 @@ the frozen derivation recipe are unchanged.
 
 ### Local ciphertext-file import
 
-Decrypt accepts multiple files through its drop target or native picker. Every
-accepted file creates a new input; the existing blank/manual inputs remain.
+Decrypt accepts multiple files through its drop target or native picker. Each
+accepted file fills the first empty input, or creates a new input if none are
+empty, then collapses the imported input. Nonempty inputs remain unchanged.
+Focus moves to the last imported input's summary, which can be reopened with
+the keyboard. Empty inputs can be filled even at the 20-input limit.
 Files are decoded locally, never uploaded, and filenames are display-only text
 with paths, controls, and bidirectional-formatting characters removed.
 
@@ -206,7 +209,8 @@ Decoded ciphertext is retained without trimming or Unicode normalization;
 textarea display follows the browser's newline handling. Limits are 1 MiB per
 file, 20 files examined per selection, 20 total inputs, and 5 MiB of imported
 source bytes retained across the current inputs. Editing an imported input does
-not release its reserved byte budget; removing or clearing it does.
+not release its reserved byte budget; removing or clearing it does. Importing
+another file into an emptied input replaces that input's byte reservation.
 
 Mixed batches report rejected files and retain accepted siblings. Reads happen
 serially. A new import, editing, removal, clearing, or navigation invalidates

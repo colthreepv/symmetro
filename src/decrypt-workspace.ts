@@ -74,13 +74,7 @@ export class DecryptWorkspace {
     const title = document.createElement('span')
     title.className = 'entry-title'
     title.textContent = `Input ${this.entries.length + 1}`
-    if (filename) {
-      const label = document.createElement('span')
-      label.className = 'entry-filename'
-      label.textContent = filename
-      label.title = filename
-      title.append(label)
-    }
+    this.setFileName(title, filename)
     const count = document.createElement('span')
     count.className = 'field-meta entry-count'
     count.textContent = countText(text)
@@ -164,6 +158,15 @@ export class DecryptWorkspace {
     })
   }
   private collapseInputs(): void { for (const entry of this.entries) entry.details.open = false }
+  private setFileName(title: HTMLElement, filename: string): void {
+    title.querySelector('.entry-filename')?.remove()
+    if (!filename) return
+    const label = document.createElement('span')
+    label.className = 'entry-filename'
+    label.textContent = filename
+    label.title = filename
+    title.append(label)
+  }
   private setState(entry: Entry, state: State): void {
     const message = state === 'valid' ? 'Password matches' : state === 'invalid' ? 'Password does not match or encrypted text is invalid' : state === 'pending' ? 'Checking password…' : ''
     entry.validation.dataset.state = state
@@ -265,22 +268,35 @@ export class DecryptWorkspace {
     const status = get('decrypt-import-status')
     status.textContent = 'Reading local files…'
     let accepted = 0
+    let lastImported: Entry | undefined
     const rejected: string[] = []
     const selection = files.slice(0, MAX_DECRYPT_INPUTS)
     if (files.length > selection.length)
       rejected.push(`${files.length - selection.length} file(s) skipped: choose no more than 20 files at once.`)
     for (const [index, file] of selection.entries()) {
       if (token !== this.revision) return
-      if (this.entries.length >= MAX_DECRYPT_INPUTS) {
+      const empty = this.entries.find(entry => entry.input.value === '')
+      if (!empty && this.entries.length >= MAX_DECRYPT_INPUTS) {
         rejected.push(`${selection.length - index} file(s) skipped: use no more than 20 inputs.`)
         break
       }
       try {
-        validateTextFileBatch([file], this.entries.length, this.entries.reduce((total, entry) => total + entry.fileBytes, 0))
+        validateTextFileBatch([file], this.entries.length - (empty ? 1 : 0), this.entries.reduce((total, entry) => total + entry.fileBytes, 0) - (empty?.fileBytes ?? 0))
         const imported = await readTextFile(file)
         if (token !== this.revision) return
         this.decodePayload(imported.text)
-        this.add(imported.text, false, imported.name, imported.byteLength)
+        if (empty) {
+          empty.text = imported.text
+          empty.input.value = imported.text
+          empty.fileBytes = imported.byteLength
+          empty.count.textContent = countText(imported.text)
+          this.setFileName(empty.details.querySelector<HTMLElement>('.entry-title')!, imported.name)
+          lastImported = empty
+        } else {
+          this.add(imported.text, false, imported.name, imported.byteLength)
+          lastImported = this.entries.at(-1)!
+        }
+        lastImported.details.open = false
         accepted++
       } catch (error) {
         if (token !== this.revision) return
@@ -290,7 +306,7 @@ export class DecryptWorkspace {
     if (token !== this.revision) return
     status.textContent = `${accepted ? `Imported ${accepted} file${accepted === 1 ? '' : 's'}.` : 'No files imported.'}${rejected.length ? ` Rejected: ${rejected.join(' ')}` : ''}`
     this.updateButton()
-    if (accepted) this.entries.at(-1)!.input.focus()
+    if (lastImported) lastImported.details.querySelector('summary')!.focus()
     this.schedule(false)
   }
   private async decrypt(entry: Entry, secret: string): Promise<string> {

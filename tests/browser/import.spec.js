@@ -46,6 +46,85 @@ async function gateReads(page) {
   })
 }
 
+test('dropping a file fills Input 1, updates its summary, and leaves it collapsed and keyboard-focused', async ({ page }) => {
+  await page.goto(`${artifactUrl.href}#decrypt`)
+  await dropFiles(page, [file('dropped-message.txt')])
+  await expect(status(page)).toHaveText('Imported 1 file.')
+  await expect(inputs(page)).toHaveCount(1)
+  const entry = inputs(page).first()
+  await expect(entry.locator('#decrypt-text')).toHaveValue(payload)
+  await expect(entry.locator('.entry-title')).toHaveText('Input 1dropped-message.txt')
+  await expect(entry.locator('.entry-filename')).toHaveAttribute('title', 'dropped-message.txt')
+  await expect(entry.locator('.entry-count')).toHaveText(`${payload.length} characters`)
+  await expect(entry).not.toHaveAttribute('open')
+  await expect(entry.locator('summary')).toBeFocused()
+  await expect(page.locator('#decrypt-outputs > details')).toHaveCount(0)
+  await page.keyboard.press('Enter')
+  await expect(entry).toHaveAttribute('open', '')
+  await expect(entry.locator('textarea')).toBeVisible()
+})
+
+for (const [description, manualText] of [
+  ['nonempty manual ciphertext', `${payload}\n`],
+  ['whitespace-only manual input', ' \t\n'],
+]) {
+  test(`importing preserves ${description} and appends a collapsed input`, async ({ page }) => {
+    await page.goto(`${artifactUrl.href}#decrypt`)
+    await page.locator('#decrypt-text').fill(manualText)
+    await page.locator('#decrypt-file-picker').setInputFiles(file('appended-message.txt'))
+    await expect(status(page)).toHaveText('Imported 1 file.')
+    await expect(inputs(page)).toHaveCount(2)
+    await expect(inputs(page).first().locator('textarea')).toHaveValue(manualText)
+    await expect(inputs(page).first().locator('.entry-filename')).toHaveCount(0)
+    await expect(inputs(page).nth(1).locator('textarea')).toHaveValue(payload)
+    await expect(inputs(page).nth(1).locator('.entry-title')).toHaveText('Input 2appended-message.txt')
+    await expect(inputs(page).nth(1)).not.toHaveAttribute('open')
+    await expect(inputs(page).nth(1).locator('summary')).toBeFocused()
+  })
+}
+
+test('a batch fills existing blanks in order and focuses the last reused summary instead of the last input', async ({ page }) => {
+  await page.goto(`${artifactUrl.href}#decrypt`)
+  await page.locator('#add-decrypt-input').click()
+  await inputs(page).nth(1).locator('textarea').fill('keep this manual input')
+  await page.locator('#add-decrypt-input').click()
+  await page.locator('#add-decrypt-input').click()
+  await inputs(page).nth(3).locator('textarea').fill('keep this trailing input')
+  const secondPayload = `${payload}\n`
+  await page.locator('#decrypt-file-picker').setInputFiles([
+    file('first-blank.txt'),
+    file('second-blank.txt', secondPayload),
+  ])
+  await expect(status(page)).toHaveText('Imported 2 files.')
+  await expect(inputs(page)).toHaveCount(4)
+  await expect(inputs(page).nth(0).locator('textarea')).toHaveValue(payload)
+  await expect(inputs(page).nth(1).locator('textarea')).toHaveValue('keep this manual input')
+  await expect(inputs(page).nth(2).locator('textarea')).toHaveValue(secondPayload)
+  await expect(inputs(page).nth(3).locator('textarea')).toHaveValue('keep this trailing input')
+  await expect(page.locator('#decrypt-inputs .entry-title')).toHaveText([
+    'Input 1first-blank.txt', 'Input 2', 'Input 3second-blank.txt', 'Input 4',
+  ])
+  await expect(inputs(page).nth(2).locator('.entry-count')).toHaveText(`${secondPayload.length} characters`)
+  await expect(inputs(page).nth(0)).not.toHaveAttribute('open')
+  await expect(inputs(page).nth(2)).not.toHaveAttribute('open')
+  await expect(inputs(page).nth(2).locator('summary')).toBeFocused()
+})
+
+test('a rejected first file leaves the initial blank available for the next accepted sibling', async ({ page }) => {
+  await page.goto(`${artifactUrl.href}#decrypt`)
+  await page.locator('#decrypt-file-picker').setInputFiles([
+    file('rejected-first.txt', 'not encrypted!'),
+    file('accepted-second.txt'),
+  ])
+  await expect(status(page)).toContainText('Imported 1 file.')
+  await expect(status(page)).toContainText('rejected-first.txt')
+  await expect(inputs(page)).toHaveCount(1)
+  await expect(page.locator('#decrypt-text')).toHaveValue(payload)
+  await expect(page.locator('.entry-title')).toHaveText('Input 1accepted-second.txt')
+  await expect(inputs(page).first()).not.toHaveAttribute('open')
+  await expect(inputs(page).first().locator('summary')).toBeFocused()
+})
+
 test('the keyboard file picker imports multiple local files offline and reveals exact Unicode text only on request', async ({ page, context }) => {
   const requests = []
   const errors = []
@@ -64,18 +143,17 @@ test('the keyboard file picker imports multiple local files offline and reveals 
   expect(chooser.isMultiple()).toBe(true)
   const names = ['café e\u0301 🔐.txt', 'second-message.txt']
   await chooser.setFiles(names.map(name => file(name)))
-  await expect(inputs(page)).toHaveCount(3)
+  await expect(inputs(page)).toHaveCount(2)
   await expect(page.locator('.entry-filename')).toHaveText(names)
-  await expect(inputs(page).first().locator('textarea')).toHaveValue('')
+  await expect(inputs(page).first().locator('textarea')).toHaveValue(payload)
   await expect(inputs(page).nth(1).locator('textarea')).toHaveValue(payload)
-  await expect(inputs(page).nth(2).locator('textarea')).toHaveValue(payload)
+  await expect(inputs(page).first()).not.toHaveAttribute('open')
   await expect(inputs(page).nth(1)).not.toHaveAttribute('open')
-  await expect(inputs(page).last()).toHaveAttribute('open', '')
+  await expect(inputs(page).last().locator('summary')).toBeFocused()
   await expect(page.locator('#decrypt-outputs > details')).toHaveCount(0)
   await page.locator('#decrypt-secret').fill(password)
-  await expect(inputs(page).first().locator('.password-validation')).toHaveAttribute('data-state', 'idle')
+  await expect(inputs(page).first().locator('.password-validation')).toHaveAttribute('data-state', 'valid')
   await expect(inputs(page).nth(1).locator('.password-validation')).toHaveAttribute('data-state', 'valid')
-  await expect(inputs(page).nth(2).locator('.password-validation')).toHaveAttribute('data-state', 'valid')
   await expect(page.locator('#decrypted-text')).toHaveValue('')
   await page.locator('#decrypt-button').click()
   const outputs = page.locator('#decrypt-outputs > details')
@@ -95,8 +173,8 @@ test('UTF-8 BOM and both BOM-marked UTF-16 encodings import without changing dec
     file('utf16-le.txt', Buffer.concat([Buffer.from([0xFF, 0xFE]), utf16le])),
     file('utf16-be.txt', Buffer.concat([Buffer.from([0xFE, 0xFF]), utf16be])),
   ])
-  await expect(inputs(page)).toHaveCount(4)
-  for (let index = 1; index <= 3; index += 1)
+  await expect(inputs(page)).toHaveCount(3)
+  for (let index = 0; index < 3; index += 1)
     await expect(inputs(page).nth(index).locator('textarea')).toHaveValue(payload)
   await page.locator('#decrypt-secret').fill(password)
   await page.locator('#decrypt-button').click()
@@ -112,15 +190,15 @@ test('mixed batches retain valid files, report rejected siblings, and allow sele
     file('bad-utf8.txt', Buffer.from([0xC0, 0xAF])),
     file('good-last.txt'),
   ])
-  await expect(inputs(page)).toHaveCount(3)
+  await expect(inputs(page)).toHaveCount(2)
   await expect(page.locator('.entry-filename')).toHaveText(['good-first.txt', 'good-last.txt'])
   await expect(status(page)).toContainText(/empty|UTF-8/i)
   await page.locator('#decrypt-file-picker').setInputFiles(file('good-last.txt'))
-  await expect(inputs(page)).toHaveCount(4)
+  await expect(inputs(page)).toHaveCount(3)
   await expect(page.locator('.entry-filename')).toHaveText(['good-first.txt', 'good-last.txt', 'good-last.txt'])
   await expect(page.locator('#decrypt-file-picker')).toHaveValue('')
   await page.locator('#decrypt-file-picker').setInputFiles(file('good-last.txt'))
-  await expect(inputs(page)).toHaveCount(5)
+  await expect(inputs(page)).toHaveCount(4)
   await expect(page.locator('.entry-filename')).toHaveText(['good-first.txt', 'good-last.txt', 'good-last.txt', 'good-last.txt'])
 })
 
@@ -173,7 +251,7 @@ test('drop hover resets after leaving or rejected files, and filenames render as
   await transfer.dispose()
   const literalName = '<img src=x onerror=window.filenameInjected=true>🔐.txt'
   await dropFiles(page, [file(`C:\\fakepath\\${literalName.replace('🔐', '\u202E🔐')}`, payload, 'application/octet-stream')])
-  await expect(inputs(page)).toHaveCount(2)
+  await expect(inputs(page)).toHaveCount(1)
   await expect(page.locator('.entry-filename')).toHaveText(literalName)
   await expect(page.locator('.entry-filename img, .entry-filename script')).toHaveCount(0)
   expect(await page.evaluate(() => window.filenameInjected)).toBeUndefined()
@@ -190,11 +268,11 @@ test('unreadable files report a recoverable error and do not prevent later valid
   })
   await page.goto(`${artifactUrl.href}#decrypt`)
   await page.locator('#decrypt-file-picker').setInputFiles([file('unreadable.txt'), file('readable.txt')])
-  await expect(inputs(page)).toHaveCount(2)
+  await expect(inputs(page)).toHaveCount(1)
   await expect(page.locator('.entry-filename')).toHaveText('readable.txt')
   await expect(status(page)).toContainText(/could not be read|couldn.t be read/i)
   await page.locator('#decrypt-file-picker').setInputFiles(file('readable-again.txt'))
-  await expect(inputs(page)).toHaveCount(3)
+  await expect(inputs(page)).toHaveCount(2)
 })
 
 test('imports enforce the 20-input and 1 MiB per-file bounds before reading oversized files', async ({ page }) => {
@@ -211,7 +289,7 @@ test('imports enforce the 20-input and 1 MiB per-file bounds before reading over
   await expect(status(page)).toContainText('1 MiB')
   await expect(inputs(page)).toHaveCount(1)
   expect(await page.evaluate(() => window.readNames)).toEqual([])
-  await page.locator('#decrypt-file-picker').setInputFiles(Array.from({ length: 19 }, (_, index) => file(`input-${index + 1}.txt`)))
+  await page.locator('#decrypt-file-picker').setInputFiles(Array.from({ length: 20 }, (_, index) => file(`input-${index + 1}.txt`)))
   await expect(inputs(page)).toHaveCount(20)
   await expect(page.locator('#add-decrypt-input')).toBeDisabled()
   await dropFiles(page, [file('over-limit.txt')])
@@ -225,19 +303,73 @@ test('the 5 MiB retained import limit is released when an imported input is remo
   await page.goto(`${artifactUrl.href}#decrypt`)
   const maximumFile = Buffer.from(payload.padEnd(mib, ' '))
   await page.locator('#decrypt-file-picker').setInputFiles(Array.from({ length: 5 }, (_, index) => file(`maximum-${index + 1}.txt`, maximumFile)))
-  await expect(inputs(page)).toHaveCount(6)
+  await expect(inputs(page)).toHaveCount(5)
   await page.locator('#decrypt-file-picker').setInputFiles(file('over-budget.txt'))
   await expect(status(page)).toContainText('5 MiB')
-  await expect(inputs(page)).toHaveCount(6)
+  await expect(inputs(page)).toHaveCount(5)
   await inputs(page).nth(1).locator('summary').click()
   await inputs(page).nth(1).getByRole('button', { name: 'Remove input' }).click()
-  await expect(inputs(page)).toHaveCount(5)
+  await expect(inputs(page)).toHaveCount(4)
   await page.locator('#decrypt-file-picker').setInputFiles(file('fits-after-removal.txt'))
-  await expect(inputs(page)).toHaveCount(6)
+  await expect(inputs(page)).toHaveCount(5)
   await expect(page.locator('.entry-filename').last()).toHaveText('fits-after-removal.txt')
 })
 
-for (const action of ['edit', 'remove', 'navigate', 'new selection']) {
+test('imports reuse empty inputs at the 20-input cap without adding or renumbering entries', async ({ page }) => {
+  await page.goto(`${artifactUrl.href}#decrypt`)
+  for (let index = 1; index < 20; index += 1)
+    await page.locator('#add-decrypt-input').click()
+  await expect(inputs(page)).toHaveCount(20)
+  await expect(page.locator('#add-decrypt-input')).toBeDisabled()
+  await page.locator('#decrypt-file-picker').setInputFiles([file('at-cap-first.txt'), file('at-cap-second.txt')])
+  await expect(status(page)).toHaveText('Imported 2 files.')
+  await expect(inputs(page)).toHaveCount(20)
+  await expect(inputs(page).nth(0).locator('textarea')).toHaveValue(payload)
+  await expect(inputs(page).nth(1).locator('textarea')).toHaveValue(payload)
+  await expect(inputs(page).nth(2).locator('textarea')).toHaveValue('')
+  await expect(inputs(page).last().locator('.entry-title')).toHaveText('Input 20')
+  await expect(page.locator('.entry-filename')).toHaveText(['at-cap-first.txt', 'at-cap-second.txt'])
+  await expect(inputs(page).nth(0)).not.toHaveAttribute('open')
+  await expect(inputs(page).nth(1)).not.toHaveAttribute('open')
+  await expect(inputs(page).nth(1).locator('summary')).toBeFocused()
+  await expect(page.locator('#add-decrypt-input')).toBeDisabled()
+})
+
+test('reusing an emptied import replaces its filename and byte reservation at the retained budget limit', async ({ page }) => {
+  test.setTimeout(60000)
+  await page.goto(`${artifactUrl.href}#decrypt`)
+  const maximumFile = Buffer.from(payload.padEnd(mib, ' '))
+  await page.locator('#decrypt-file-picker').setInputFiles(Array.from({ length: 5 }, (_, index) => file(`original-${index + 1}.txt`, maximumFile)))
+  await expect(status(page)).toHaveText('Imported 5 files.')
+  await expect(inputs(page)).toHaveCount(5)
+  await inputs(page).first().locator('summary').click()
+  await inputs(page).first().locator('textarea').fill('')
+  await expect(inputs(page).first().locator('.entry-count')).toHaveText('0 characters')
+  await page.locator('#decrypt-file-picker').setInputFiles(file('replacement.txt'))
+  await expect(status(page)).toHaveText('Imported 1 file.')
+  await expect(inputs(page)).toHaveCount(5)
+  await expect(inputs(page).first().locator('textarea')).toHaveValue(payload)
+  await expect(inputs(page).first().locator('.entry-title')).toHaveText('Input 1replacement.txt')
+  await expect(inputs(page).first().locator('.entry-filename')).toHaveCount(1)
+  await expect(inputs(page).first().locator('.entry-filename')).toHaveAttribute('title', 'replacement.txt')
+  await expect(inputs(page).first().locator('.entry-count')).toHaveText(`${payload.length} characters`)
+  await expect(inputs(page).first()).not.toHaveAttribute('open')
+  await expect(inputs(page).first().locator('summary')).toBeFocused()
+  await expect(page.locator('.entry-filename')).toHaveText([
+    'replacement.txt', 'original-2.txt', 'original-3.txt', 'original-4.txt', 'original-5.txt',
+  ])
+  const freedBytes = mib - Buffer.byteLength(payload)
+  await page.locator('#decrypt-file-picker').setInputFiles(file('fills-released-budget.txt', payload.padEnd(freedBytes, ' ')))
+  await expect(status(page)).toHaveText('Imported 1 file.')
+  await expect(inputs(page)).toHaveCount(6)
+  await expect(inputs(page).last().locator('.entry-filename')).toHaveText('fills-released-budget.txt')
+  await page.locator('#decrypt-file-picker').setInputFiles(file('over-replacement-budget.txt'))
+  await expect(status(page)).toContainText('5 MiB')
+  await expect(inputs(page)).toHaveCount(6)
+  await expect(page.locator('.entry-filename')).toHaveCount(6)
+})
+
+for (const action of ['edit', 'remove', 'clear', 'navigate', 'new selection']) {
   test(`a late file read cannot restore ciphertext after ${action}`, async ({ page }) => {
     await gateReads(page)
     await page.goto(`${artifactUrl.href}#decrypt`)
@@ -251,6 +383,9 @@ for (const action of ['edit', 'remove', 'navigate', 'new selection']) {
     else if (action === 'remove') {
       await inputs(page).last().getByRole('button', { name: 'Remove input' }).click()
     }
+    else if (action === 'clear') {
+      await page.locator('[data-clear="decrypt"]').click()
+    }
     else if (action === 'navigate') {
       await page.getByRole('tab', { name: 'Derive', exact: true }).click()
     }
@@ -263,7 +398,7 @@ for (const action of ['edit', 'remove', 'navigate', 'new selection']) {
       await expect.poll(() => page.evaluate(() => window.pendingReads.length)).toBe(2)
       expect(await page.evaluate(() => window.pendingReads[1].name)).toBe('current.txt')
       await page.evaluate(() => window.pendingReads[1].release())
-      await expect(inputs(page)).toHaveCount(2)
+      await expect(inputs(page)).toHaveCount(1)
       await expect(page.locator('.entry-filename')).toHaveText('current.txt')
     }
     else {
@@ -284,13 +419,14 @@ test('files are read serially and canceling a later read preserves an already im
   await expect.poll(() => page.evaluate(() => window.pendingReads.length)).toBe(1)
   await expect(inputs(page)).toHaveCount(1)
   await page.evaluate(() => window.pendingReads[0].release())
-  await expect(inputs(page)).toHaveCount(2)
+  await expect(inputs(page)).toHaveCount(1)
   await expect.poll(() => page.evaluate(() => window.pendingReads.length)).toBe(2)
   await expect(page.locator('.entry-filename')).toHaveText('first.txt')
+  await inputs(page).last().locator('summary').click()
   await inputs(page).last().locator('textarea').fill(`${payload}\n`)
   await page.evaluate(() => window.pendingReads[1].release())
   await expect.poll(() => page.evaluate(() => window.finishedReads)).toBe(2)
-  await expect(inputs(page)).toHaveCount(2)
+  await expect(inputs(page)).toHaveCount(1)
   await expect(page.locator('.entry-filename')).toHaveText('first.txt')
   await expect(inputs(page).last().locator('textarea')).toHaveValue(`${payload}\n`)
 })
@@ -305,7 +441,7 @@ for (const width of [390, 320]) {
       file('invalid-file.txt', 'not encrypted'),
       file('日本語-café.txt'),
     ])
-    await expect(inputs(page)).toHaveCount(3)
+    await expect(inputs(page)).toHaveCount(2)
     await page.locator('#decrypt-secret').fill(password)
     await page.locator('#decrypt-button').click()
     await expect(page.locator('#decrypt-outputs > details')).toHaveCount(2)
