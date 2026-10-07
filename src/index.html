@@ -51,6 +51,13 @@
         <section id="panel-decrypt" class="tool-panel" role="tabpanel" aria-labelledby="tab-decrypt" hidden>
           <form id="decrypt-form" class="input-panel">
             <div class="panel-heading"><h2>Input</h2><button type="button" id="add-decrypt-input" class="quiet-button">Add input <span aria-hidden="true">+</span></button></div>
+            <div id="decrypt-file-drop" class="file-drop" data-dragging="false" role="region" aria-label="Import encrypted text files">
+              <span>Drop encrypted text files here</span>
+              <button type="button" id="choose-decrypt-files" class="quiet-button">Choose files</button>
+              <input id="decrypt-file-picker" type="file" multiple accept="text/plain,.txt" hidden>
+              <p class="field-help">Local only · UTF-8 or UTF-16 with BOM · 1 MiB per file · 20 inputs / 5 MiB total</p>
+            </div>
+            <p id="decrypt-import-status" class="import-status" role="status" aria-live="polite"></p>
             <div id="decrypt-inputs" class="accordion-list"></div>
             <div class="field"><label for="decrypt-secret">Shared password</label><div class="secret-field"><input type="password" id="decrypt-secret" autocomplete="new-password" spellcheck="false" autocapitalize="none"><button type="button" data-reveal="decrypt-secret" aria-label="Show password" aria-pressed="false">Show</button></div></div>
             <div class="form-actions"><button type="submit" id="decrypt-button" class="primary-button"><span class="button-label">Show Clear Text</span><span class="button-icon" aria-hidden="true">→</span></button><button type="button" data-clear="decrypt" class="text-button">Clear</button></div>
