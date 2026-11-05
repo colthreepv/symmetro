@@ -126,8 +126,10 @@ test('module exposes only the intended public credential and validation API', as
     'DERIVATION_VERSION',
     'MAX_PASSWORD_INDEX',
     'MAX_SECRET_BYTES',
+    'deriveCredential',
     'derivePassword',
     'nextPasswordIndex',
+    'parseIdentifier',
     'parsePasswordIndex',
     'validateSecret',
   ].sort())

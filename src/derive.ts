@@ -1,7 +1,7 @@
 import { argon2id } from 'hash-wasm'
-import { DERIVATION_VERSION, parsePasswordIndex, validateSecret } from './derive-input.ts'
+import { DERIVATION_VERSION, parsePasswordIndex, validateSecret, parseIdentifier } from './derive-input.ts'
 
-export { DERIVATION_VERSION, MAX_PASSWORD_INDEX, MAX_SECRET_BYTES, nextPasswordIndex, parsePasswordIndex, validateSecret } from './derive-input.ts'
+export { DERIVATION_VERSION, MAX_PASSWORD_INDEX, MAX_SECRET_BYTES, nextPasswordIndex, parsePasswordIndex, validateSecret, parseIdentifier } from './derive-input.ts'
 
 const encoder = new TextEncoder()
 const ARGON2_SALT = encoder.encode('symmetro:derive:v1:argon2id')
@@ -38,7 +38,10 @@ export async function derivePassword(
   if (version !== DERIVATION_VERSION) {
     throw new Error('Unsupported password derivation version.')
   }
-  const number = parsePasswordIndex(index)
+  return deriveWithContext(secret, encodeIndex(parsePasswordIndex(index)), 1)
+}
+
+async function deriveWithContext(secret: string, context: Uint8Array, recipe: 1 | 2): Promise<string> {
   validateSecret(secret)
   const subtle = globalThis.crypto?.subtle
   if (!subtle || typeof WebAssembly === 'undefined') {
@@ -51,7 +54,7 @@ export async function derivePassword(
   try {
     root = await argon2id({
       password: secretBytes,
-      salt: ARGON2_SALT,
+      salt: recipe === 1 ? ARGON2_SALT : encoder.encode('symmetro:derive:v2:argon2id'),
       parallelism: 4,
       iterations: 3,
       memorySize: 65_536,
@@ -68,11 +71,12 @@ export async function derivePassword(
     root.fill(0)
     secretBytes.fill(0)
 
-    const info = new Uint8Array(INFO_PREFIX.length + 8)
-    info.set(INFO_PREFIX)
-    info.set(encodeIndex(number), INFO_PREFIX.length)
+    const prefix = recipe === 1 ? INFO_PREFIX : encoder.encode('symmetro:label:v2\0')
+    const info = new Uint8Array(prefix.length + context.length)
+    info.set(prefix)
+    info.set(context, prefix.length)
     const bits = await subtle.deriveBits(
-      { name: 'HKDF', hash: 'SHA-256', salt: HKDF_SALT, info },
+      { name: 'HKDF', hash: 'SHA-256', salt: recipe === 1 ? HKDF_SALT : encoder.encode('symmetro:derive:v2:hkdf'), info },
       key,
       256,
     )
@@ -84,4 +88,15 @@ export async function derivePassword(
     root?.fill(0)
     output?.fill(0)
   }
+}
+
+/** Automatic routing is frozen alongside both recipes. */
+export async function deriveCredential(secret: string, identifier: string): Promise<string> {
+  const parsed = parseIdentifier(identifier)
+  if (parsed.version === 1) return derivePassword(secret, parsed.value)
+  const label = encoder.encode(parsed.value)
+  const context = new Uint8Array(4 + label.length)
+  new DataView(context.buffer).setUint32(0, label.length, false)
+  context.set(label, 4)
+  return deriveWithContext(secret, context, 2)
 }

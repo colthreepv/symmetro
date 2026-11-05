@@ -1,14 +1,14 @@
-import { derivePassword } from './derive.ts'
+import { deriveCredential } from './derive.ts'
 
-interface Request { secret: string, index: string, version: number }
+interface Request { secret: string, index: string }
 const scope = globalThis as unknown as {
   onmessage: ((event: MessageEvent<Request>) => void) | null
   postMessage: (message: { password?: string, error?: string }) => void
 }
 async function handleRequest(event: MessageEvent<Request>): Promise<void> {
   try {
-    const { secret, index, version } = event.data
-    const password = await derivePassword(secret, index, version)
+    const { secret, index } = event.data
+    const password = await deriveCredential(secret, index)
     scope.postMessage({ password })
   }
   catch (error) {

@@ -4,6 +4,8 @@ import { defineConfig } from '@playwright/test'
 export default defineConfig({
   testDir: './tests/browser',
   fullyParallel: true,
+  // Bound simultaneous memory-hard derivations on CI runners.
+  workers: process.env.CI ? 2 : undefined,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
   use: {

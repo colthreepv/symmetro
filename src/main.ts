@@ -1,7 +1,7 @@
 import './index.css'
 import { DecryptWorkspace } from './decrypt-workspace.ts'
 import { encryptText } from './crypto.js'
-import { DERIVATION_VERSION, MAX_PASSWORD_INDEX, nextPasswordIndex, parsePasswordIndex, validateSecret } from './derive-input.ts'
+import { MAX_PASSWORD_INDEX, nextPasswordIndex, parseIdentifier, validateSecret } from './derive-input.ts'
 import DeriveWorker from './derive.worker?worker&inline'
 
 type Mode = 'encrypt' | 'decrypt' | 'derive'
@@ -61,6 +61,9 @@ function setBusy(mode: Mode, pending: boolean): void {
   updateButtons()
 }
 function updateButtons(): void {
+  let validLabel = false
+  try { validLabel = parseIdentifier(valueElement('derive-index').value).version === 2 } catch { /* Invalid labels cannot be copied. */ }
+  element<HTMLButtonElement>('copy-label').disabled = !validLabel
   for (const mode of modes) {
     if (mode === 'decrypt') {
       decryptWorkspace.updateButton()
@@ -74,7 +77,8 @@ function updateButtons(): void {
     copy.disabled = valueElement(config.output).dataset.ready !== 'true'
   }
   const hasDerived = valueElement('derived-password').dataset.ready === 'true'
-  element<HTMLButtonElement>('next-password').disabled = busy || !hasDerived || valueElement('derive-index').value === MAX_PASSWORD_INDEX
+  element('next-password').hidden = !/^[0-9]+$/.test(valueElement('derive-index').value)
+  element<HTMLButtonElement>('next-password').disabled = busy || !hasDerived || !/^\d+$/.test(valueElement('derive-index').value) || valueElement('derive-index').value === MAX_PASSWORD_INDEX
   document.querySelector<HTMLButtonElement>('[data-reveal="derived-password"]')!.disabled = !hasDerived
 }
 function hideSecret(id: string): void {
@@ -134,6 +138,7 @@ function resetMode(mode: Mode): void {
   setStatus(mode)
   if (mode === 'derive') {
     element('derived-label').textContent = 'Password #1'
+    element('derive-version').textContent = 'v1 · Original numeric recipe'
     document.querySelector<HTMLInputElement>('input[name="derive-length"][value="43"]')!.checked = true
     updateDerivedDisplay()
   }
@@ -177,7 +182,7 @@ function encodePayload(bytes: Uint8Array): string {
     binary += String.fromCharCode(...bytes.subarray(offset, offset + 8192))
   return btoa(binary)
 }
-function deriveInWorker(secret: string, index: string, version: number): Promise<string> {
+function deriveInWorker(secret: string, index: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const worker = new DeriveWorker()
     currentWorker = { worker, reject }
@@ -205,7 +210,7 @@ function deriveInWorker(secret: string, index: string, version: number): Promise
       reject(new Error('The browser could not read the generated password. Please try again.'))
     }
     try {
-      worker.postMessage({ secret, index, version })
+      worker.postMessage({ secret, index })
     }
     catch {
       settle()
@@ -234,9 +239,8 @@ async function run(mode: Mode): Promise<void> {
       throw new Error('This browser does not provide Web Crypto. Use a current browser.')
     if (mode === 'derive') {
       validateSecret(secret)
-      parsePasswordIndex(input)
-      if (Number(element<HTMLSelectElement>('derive-version').value) !== DERIVATION_VERSION)
-        throw new Error('Unsupported recipe version.')
+      parseIdentifier(input)
+
     }
     setBusy(mode, true)
     setStatus(mode, mode === 'derive' ? 'Deriving…' : 'Encrypting…')
@@ -244,7 +248,7 @@ async function run(mode: Mode): Promise<void> {
     if (mode === 'encrypt')
       result = encodePayload(await encryptText(input, secret))
     else
-      result = await deriveInWorker(secret, input, DERIVATION_VERSION)
+      result = await deriveInWorker(secret, input)
     if (token !== revision || activeMode !== mode)
       return
     const output = valueElement(config.output)
@@ -253,7 +257,7 @@ async function run(mode: Mode): Promise<void> {
     if (mode === 'derive') {
       derivedPassword = result
       updateDerivedDisplay()
-      element('derived-label').textContent = `Password #${input}`
+      element('derived-label').textContent = `Password · ${input}`
     }
     setButtonState(mode, 'success')
     setStatus(mode, mode === 'encrypt' ? 'Encrypted.' : 'Generated.')
@@ -335,8 +339,14 @@ for (const mode of modes) {
         const count = valueElement('encrypt-text').value.length
         element('encrypt-count').textContent = `${count.toLocaleString('en')} character${count === 1 ? '' : 's'}`
       }
-      if (mode === 'derive')
-        element('derived-label').textContent = `Password #${valueElement('derive-index').value || '—'}`
+      if (mode === 'derive') {
+        const value = valueElement('derive-index').value
+        element('derived-label').textContent = `Password · ${value || '—'}`
+        try {
+          const parsed = parseIdentifier(value)
+          element('derive-version').textContent = parsed.version === 1 ? 'v1 · Original numeric recipe' : 'v2 · Label recipe'
+        } catch { element('derive-version').textContent = 'Check number or label' }
+      }
       updateButtons()
     })
 
@@ -459,3 +469,24 @@ if (!supported) {
 }
 clearAll()
 selectMode(readHash(), false)
+
+// Copy the label exactly; never include the base secret or generated credential.
+element('copy-label').addEventListener('click', () => {
+  void copyLabel()
+})
+async function copyLabel(): Promise<void> {
+  const input = element<HTMLInputElement>('derive-index')
+  const text = input.value
+  if (parseIdentifier(text).version !== 2) return
+  const token = revision
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
+    await navigator.clipboard.writeText(text)
+    if (token === revision) setStatus('derive', 'Label copied.')
+  } catch {
+    if (token !== revision) return
+    input.focus()
+    input.select()
+    setStatus('derive', 'Automatic copy is unavailable. The label is selected; use your device’s Copy command.')
+  }
+}

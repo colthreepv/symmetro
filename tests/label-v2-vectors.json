@@ -1,0 +1,47 @@
+[
+  {
+    "secret": "Public synthetic label test secret",
+    "label": "car",
+    "expected": "XddcuTMkQPZ97pTS3dZQpovOEveNwdYDCrZNt4cONpc"
+  },
+  {
+    "secret": "Public synthetic label test secret",
+    "label": "wallet",
+    "expected": "b46Pf34VdwpOeCSYpkc9t553vnv89ky5b8UTz86YsjM"
+  },
+  {
+    "secret": "Public synthetic label test secret",
+    "label": "🚗",
+    "expected": "KAAfW7Lhrm5Gnd60cmhU_xeMRCSwRSEudSAohwocHeE"
+  },
+  {
+    "secret": "Public synthetic label test secret",
+    "label": "1️⃣",
+    "expected": "zOd69k80vkku0rgkf-vwmEUePLgpnzc_jCkKe94D71k"
+  },
+  {
+    "secret": "Public synthetic label test secret",
+    "label": "👨‍👩‍👧‍👦",
+    "expected": "_7VxnN-F1IU5_gjnSJHp68LL3363suWBs0qpmZmN4G4"
+  },
+  {
+    "secret": "Public synthetic label test secret",
+    "label": "é",
+    "expected": "YHZ00fUumysbo6Rdud1MVTHf1X0TNV6gnyaNHLwd-kg"
+  },
+  {
+    "secret": "Public synthetic label test secret",
+    "label": "é",
+    "expected": "luTvNUSPZFHdFmeUVkgXknt7xd9owICcGrYB5Kp5FN4"
+  },
+  {
+    "secret": "Public synthetic label test secret",
+    "label": "❤",
+    "expected": "YjeO1oI8YrvyVqfW5nil1t2XosZ5dr0ape9F6CtF1x0"
+  },
+  {
+    "secret": "Public synthetic label test secret",
+    "label": "❤️",
+    "expected": "d-LboFnXaI5c1lIzmW8vnap_VsWMS2RNyjw_gdp9qIw"
+  }
+]

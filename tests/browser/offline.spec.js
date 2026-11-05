@@ -949,8 +949,8 @@ test('tool headers stay aligned and recipe v1 is fixed', async ({ page, context 
     const deriveHeading = await page.locator('.derive-heading').boundingBox()
     expect(Math.abs(deriveHeading.height - toolbar.height)).toBeLessThan(1)
     expect(deriveHeading.y + deriveHeading.height).toBeCloseTo(toolbar.y + toolbar.height, 0)
-    await expect(page.locator('#derive-version')).toBeDisabled()
-    await expect(page.locator('#derive-version')).toHaveValue('1')
+    await expect(page.locator('#derive-version')).toContainText('v1')
+    await expect(page.locator('#derive-version')).toContainText('Original numeric recipe')
   }
 })
 

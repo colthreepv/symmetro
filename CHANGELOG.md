@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.2.0 — 2026-11-05
+
+### Added
+
+- Derive passwords from numbers or text labels, including emoji, in one field.
+- Preserve exact UTF-8 label text without normalization, with a separate frozen
+  label recipe v2. Recipe versions identify calculations, not security levels.
+- Copy labels exactly, with manual-selection fallback when clipboard access is unavailable.
+- Independent label vectors and offline Chromium/Firefox coverage.
+
+### Compatibility
+
+- Canonical numeric inputs retain byte-for-byte original recipe v1 outputs.
+- Ambiguous and out-of-range numeric input is rejected explicitly.
+- Existing encrypted text and single-file offline operation are unchanged.
+
 ## 3.1.0 — 2026-10-07
 
 ### Added

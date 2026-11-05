@@ -60,3 +60,25 @@ export function validateSecret(secret: string): void {
     }
   }
 }
+
+/** Frozen automatic routing: digit-only input always belongs to numeric v1. */
+export function parseIdentifier(input: string): { version: 1 | 2, value: string } {
+  // eslint-disable-next-line no-control-regex
+  if (!input || /^[\u0009-\u000d\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]|[\u0009-\u000d\u0020\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]$/.test(input))
+    throw new Error('Enter a number or label without leading or trailing whitespace.')
+  if (/^[0-9]+$/.test(input)) {
+    parsePasswordIndex(input)
+    return { version: 1, value: input }
+  }
+  if (/^[0-9\u0660-\u0669\u06f0-\u06f9\uff10-\uff19]+$/.test(input) || /^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$/.test(input))
+    throw new Error('Ambiguous number. Use an integer from 1 to 18446744073709551615 without signs, leading zeros, decimals or exponents; labels must include a nonnumeric character.')
+  validateSecret(input)
+  // ASCII control characters are intentionally rejected.
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u.test(input))
+    throw new Error('Labels cannot contain control characters or bidirectional formatting marks.')
+  const value = input
+  if (new TextEncoder().encode(value).length > 1024)
+    throw new Error('Labels must not exceed 1024 UTF-8 bytes in exact UTF-8.')
+  return { version: 2, value }
+}

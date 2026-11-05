@@ -15,7 +15,7 @@ Choose **Encrypt / Decrypt** or **Derive**. In the text tool, select an operatio
 
 - **Encrypt:** protect text with a password, then save the encrypted result and keep the password separately
 - **Decrypt:** recover your text with the same password. Existing Symmetro encrypted text remains supported
-- **Derive:** enter a secret, password number, and length to recreate a numbered password. The same inputs and recipe version always give the same result
+- **Derive:** enter a secret, number or label, and length to recreate a numbered password. Numbers retain the original v1 results; words and emoji select label recipe v2 automatically. The same inputs and recipe always give the same result
 
 In Decrypt, a small indicator checks whether the password matches while you type.
 Choose **Show Clear Text** to display the recovered text.
@@ -81,3 +81,9 @@ creates a new one when none are empty, then collapses that input. Files stay
 on your device. Use UTF-8, or UTF-16 with a byte-order mark; binary, malformed,
 empty, and non-ciphertext files are rejected individually. Limits are 1 MiB per
 file, 20 inputs, and 5 MiB of imported files in the workspace.
+
+## Labels and compatibility
+
+See [LABEL_RECIPE_V2.md](LABEL_RECIPE_V2.md) for frozen routing and exact Unicode rules. Labels are case-sensitive exact UTF-8, without normalization. Keep the same label, length and recipe to reproduce an output. No counter is required. Recipe versions identify calculations, not security levels.
+
+Labels preserve the exact Unicode character sequence. Visually identical spellings or emoji variants may differ; Copy label preserves the entered text.
