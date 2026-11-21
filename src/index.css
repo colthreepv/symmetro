@@ -161,6 +161,8 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:1 }
 .recipe-fields select:disabled { color:var(--muted); cursor:default }
 .recipe-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(120px,.4fr); gap:16px }
 .recipe-fields .field { margin-bottom:0 }
+#derive-identifier-status:empty { margin-top:0 }
+#derive-identifier-status[data-error] { color:var(--error) }
 .length-control { border:0; padding:0; margin:20px 0 0; min-width:0 }
 .length-control legend { padding:0; margin-bottom:8px; font-size:14px; font-weight:500 }
 .length-options { display:flex; gap:4px; padding:3px; max-width:300px; border:1px solid var(--line-soft); border-radius:8px; background:var(--field) }
