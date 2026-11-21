@@ -93,7 +93,13 @@
           <form id="derive-form" class="input-panel">
             <div class="field"><label for="derive-secret">Base secret</label><div class="secret-field"><input type="password" id="derive-secret" autocomplete="new-password" spellcheck="false" autocapitalize="none" aria-describedby="secret-help"><button type="button" data-reveal="derive-secret" aria-label="Show secret text" aria-pressed="false">Show</button></div><p id="secret-help" class="field-help">Single line. Spaces and case matter.</p></div>
             <div class="recipe-fields">
-              <div class="field"><label for="derive-index">Number or label</label><div class="number-field"><span aria-hidden="true">#</span><input type="text" id="derive-index" autocapitalize="none" autocorrect="off" value="1" autocomplete="off" spellcheck="false" aria-describedby="index-help"></div><p id="index-help" class="field-help">Numbers reproduce the original recipe. Labels support emoji and use UTF-8 encoding.</p><button type="button" id="copy-label" class="text-button" disabled>Copy label</button></div>
+              <div class="field">
+                <label for="derive-index">Number or label</label>
+                <div class="number-field"><span aria-hidden="true">#</span><input type="text" id="derive-index" autocapitalize="none" autocorrect="off" value="1" autocomplete="off" spellcheck="false" aria-describedby="index-help"></div>
+                <p id="index-help" class="field-help">Numbers reproduce the original recipe. Labels support emoji and use UTF-8 encoding.</p>
+                <button type="button" id="copy-label" class="text-button" disabled>Copy label</button>
+                <p id="derive-identifier-status" class="field-help" role="status"></p>
+              </div>
               <div class="field"><label for="derive-version">Recipe</label><span id="derive-version">v1 · Original numeric recipe</span><button type="button" title="A recipe defines the exact calculation. Numbers use the original v1 recipe; labels use v2. These are compatibility identifiers, not security levels." aria-describedby="recipe-explanation">ⓘ</button></div>
             </div>
             <p id="recipe-explanation" class="field-help">Recipes are selected automatically: numbers use original v1; labels use v2. Versions identify calculations, not security levels.</p>
