@@ -1,6 +1,33 @@
 import { derivePassword } from '../../src/derive.ts'
 import { expect, test } from '@playwright/test'
 const url = new URL('../../dist/index.html', import.meta.url).href
+
+test('multiline identifier paste and drop are canceled before the browser can join lines', async ({ page, context }) => {
+  await context.setOffline(true)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto(url + '#derive')
+  const identifier = page.getByRole('textbox', { name: 'Number or label' })
+  const priorLabel = 'cafe\u0301 🚗'
+  await identifier.fill(priorLabel)
+
+  for (const [kind, text] of [['paste', 'wallet\nbackup'], ['paste', '1\r\n2'], ['drop', 'wallet\nbackup']]) {
+    const prevented = await identifier.evaluate((input, [kind, text]) => {
+      const transfer = new DataTransfer()
+      transfer.setData('text/plain', text)
+      const options = { bubbles: true, cancelable: true }
+      const event = kind === 'paste'
+        ? new ClipboardEvent('paste', { ...options, clipboardData: transfer })
+        : new DragEvent('drop', { ...options, dataTransfer: transfer })
+      input.dispatchEvent(event)
+      return event.defaultPrevented
+    }, [kind, text])
+    expect(prevented).toBe(true)
+    await expect(identifier).toHaveValue(priorLabel)
+    await expect(page.getByText('Use a single line for the number or label.')).toBeInViewport()
+    await expect(page.locator('#derive-version')).toContainText('v2')
+  }
+})
+
 test('unified field works offline with exact numeric compatibility and emoji', async ({page, context}) => {
   await context.setOffline(true)
   const requests = []
@@ -34,6 +61,7 @@ test('unified field works offline with exact numeric compatibility and emoji', a
 
 test('Copy label preserves exact Unicode without copying the secret or password', async ({ page, context }) => {
   await context.setOffline(true)
+  await page.setViewportSize({ width: 390, height: 844 })
   await page.addInitScript(() => {
     window.copiedLabels = []
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
@@ -46,19 +74,31 @@ test('Copy label preserves exact Unicode without copying the secret or password'
   const label = 'e\u0301 👨‍👩‍👧‍👦 ❤️'
   await page.locator('#derive-index').fill(label)
   await page.locator('#copy-label').click()
-  await expect(page.locator('#derive-status')).toHaveText('Label copied.')
+  const feedback = page.locator('#derive-identifier-status')
+  await expect(feedback).toHaveText('Label copied.')
+  await expect(feedback).toBeVisible()
+  await expect(feedback).toBeInViewport()
+  await expect(feedback).toHaveCSS('clip', 'auto')
+  await expect(feedback).toHaveAttribute('role', 'status')
   expect(await page.evaluate(() => window.copiedLabels)).toEqual([label])
   await page.locator('#derive-index').fill('033')
+  await expect(feedback).toBeEmpty()
   await expect(page.locator('#copy-label')).toBeDisabled()
 })
 
 test('Copy label offers manual selection when clipboard access is unavailable', async ({ page, context }) => {
   await context.setOffline(true)
+  await page.setViewportSize({ width: 390, height: 844 })
   await page.addInitScript(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined }))
   await page.goto(url + '#derive')
   await page.locator('#derive-index').fill('🚗 e\u0301')
   await page.locator('#copy-label').click()
-  await expect(page.locator('#derive-status')).toContainText('The label is selected')
+  const feedback = page.locator('#derive-identifier-status')
+  await expect(feedback).toContainText('The label is selected')
+  await expect(feedback).toBeVisible()
+  await expect(feedback).toBeInViewport()
+  await expect(feedback).toHaveCSS('clip', 'auto')
+  await expect(page.locator('#derive-index')).toBeFocused()
   const selected = await page.locator('#derive-index').evaluate(input => input.value.slice(input.selectionStart, input.selectionEnd))
   expect(selected).toBe('🚗 e\u0301')
 })
