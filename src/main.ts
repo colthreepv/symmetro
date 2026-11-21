@@ -43,6 +43,11 @@ function setStatus(mode: Mode, message = '', error = false): void {
   if (error)
     setButtonState(mode, 'error')
 }
+function setIdentifierStatus(message = '', error = false): void {
+  const feedback = element('derive-identifier-status')
+  feedback.toggleAttribute('data-error', error)
+  feedback.textContent = message
+}
 function setButtonState(mode: Mode, state: 'idle' | 'pending' | 'success' | 'error'): void {
   const button = element<HTMLButtonElement>(fields[mode].button)
   button.dataset.state = state
@@ -99,6 +104,7 @@ function clearOutput(mode: Mode): void {
   if (mode === 'derive') {
     derivedPassword = ''
     hideSecret('derived-password')
+    setIdentifierStatus()
   }
 }
 function updateDerivedDisplay(): void {
@@ -437,24 +443,29 @@ element('next-password').addEventListener('click', () => {
     setStatus('derive', error instanceof Error ? error.message : 'Invalid password number.', true)
   }
 })
-element('derive-secret').addEventListener('paste', (event) => {
-  if (event instanceof ClipboardEvent && /[\r\n]/.test(event.clipboardData?.getData('text') ?? '')) {
-    event.preventDefault()
-    invalidate()
-    clearOutput('derive')
-    updateButtons()
-    setStatus('derive', 'Use single-line secret text. Line breaks were not pasted, so your secret was not silently changed.', true)
-  }
-})
-element('derive-secret').addEventListener('drop', (event) => {
-  if (event instanceof DragEvent && /[\r\n]/.test(event.dataTransfer?.getData('text') ?? '')) {
-    event.preventDefault()
-    invalidate()
-    clearOutput('derive')
-    updateButtons()
-    setStatus('derive', 'Use single-line secret text. Text containing line breaks was not inserted.', true)
-  }
-})
+function rejectMultilineDeriveInput(event: Event, text: string | undefined, field: string, secretMessage: string): void {
+  if (!/[\r\n]/.test(text ?? '')) return
+  event.preventDefault()
+  invalidate()
+  clearOutput('derive')
+  updateButtons()
+  if (field === 'derive-index')
+    setIdentifierStatus('Use a single line for the number or label.', true)
+  else
+    setStatus('derive', secretMessage, true)
+}
+
+for (const id of ['derive-secret', 'derive-index']) {
+  const input = element<HTMLInputElement>(id)
+  input.addEventListener('paste', (event) => {
+    rejectMultilineDeriveInput(event, event.clipboardData?.getData('text'), id,
+      'Use single-line secret text. Line breaks were not pasted, so your secret was not silently changed.')
+  })
+  input.addEventListener('drop', (event) => {
+    rejectMultilineDeriveInput(event, event.dataTransfer?.getData('text'), id,
+      'Use single-line secret text. Text containing line breaks was not inserted.')
+  })
+}
 window.addEventListener('hashchange', () => selectMode(readHash(), false))
 window.addEventListener('pagehide', clearAll)
 window.addEventListener('pageshow', (event) => {
@@ -479,14 +490,15 @@ async function copyLabel(): Promise<void> {
   const text = input.value
   if (parseIdentifier(text).version !== 2) return
   const token = revision
+  setIdentifierStatus()
   try {
     if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
     await navigator.clipboard.writeText(text)
-    if (token === revision) setStatus('derive', 'Label copied.')
+    if (token === revision) setIdentifierStatus('Label copied.')
   } catch {
     if (token !== revision) return
     input.focus()
     input.select()
-    setStatus('derive', 'Automatic copy is unavailable. The label is selected; use your device’s Copy command.')
+    setIdentifierStatus('The label is selected. Use your device’s Copy command.')
   }
 }
